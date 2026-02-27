@@ -57,10 +57,14 @@ public sealed class TaskbarManager : IDisposable
             foreach (var hwnd in _hiddenTaskbars)
             {
                 NativeMethods.ShowWindow(hwnd, NativeMethods.SW_SHOW);
+                // Force the taskbar to reclaim its AppBar space
+                NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE |
+                    NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
                 Logger.Instance.Debug($"Restored taskbar: {hwnd}");
             }
 
-            // Also try to find any that may have been recreated
+            // Also catch any taskbar that may have been recreated or missed
             NativeMethods.EnumWindows((hwnd, _) =>
             {
                 var sb = new StringBuilder(256);
@@ -70,9 +74,16 @@ public sealed class TaskbarManager : IDisposable
                 if (className is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
                 {
                     NativeMethods.ShowWindow(hwnd, NativeMethods.SW_SHOW);
+                    NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                        NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE |
+                        NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
                 }
                 return true;
             }, IntPtr.Zero);
+
+            // Broadcast WM_SETTINGCHANGE so the shell refreshes all work-area reservations
+            NativeMethods.PostMessage(NativeMethods.HWND_BROADCAST,
+                NativeMethods.WM_SETTINGCHANGE, IntPtr.Zero, IntPtr.Zero);
 
             _hiddenTaskbars.Clear();
             _isHidden = false;
@@ -101,10 +112,8 @@ public sealed class TaskbarManager : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        // Always restore taskbar on disposal
-        if (_isHidden)
-        {
-            ShowTaskbar();
-        }
+        // Always attempt to show the taskbar on disposal — even if _isHidden is false
+        // (it may be false due to a failed HideTaskbar call at startup)
+        ShowTaskbar();
     }
 }

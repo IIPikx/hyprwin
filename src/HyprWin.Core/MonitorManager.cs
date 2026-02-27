@@ -67,23 +67,27 @@ public sealed class MonitorManager
                         }
                         catch { /* fallback to 96 */ }
 
-                        // Calculate effective work area (subtract top bar)
-                        var effectiveWork = mi.rcWork;
+                        // Calculate effective work area.
+                        // Use rcMonitor (full physical bounds) — NOT rcWork — because
+                        // HyprWin hides the native taskbar, so the system work-area
+                        // reservation is irrelevant and we must reclaim that space.
+                        // Only subtract the HyprWin top bar height.
+                        var effectiveWork = mi.rcMonitor;
                         if (topBarPosition.Equals("top", StringComparison.OrdinalIgnoreCase))
                         {
                             effectiveWork = new NativeMethods.RECT(
-                                mi.rcWork.Left,
-                                mi.rcWork.Top + topBarHeight,
-                                mi.rcWork.Right,
-                                mi.rcWork.Bottom);
+                                mi.rcMonitor.Left,
+                                mi.rcMonitor.Top + topBarHeight,
+                                mi.rcMonitor.Right,
+                                mi.rcMonitor.Bottom);
                         }
                         else // bottom
                         {
                             effectiveWork = new NativeMethods.RECT(
-                                mi.rcWork.Left,
-                                mi.rcWork.Top,
-                                mi.rcWork.Right,
-                                mi.rcWork.Bottom - topBarHeight);
+                                mi.rcMonitor.Left,
+                                mi.rcMonitor.Top,
+                                mi.rcMonitor.Right,
+                                mi.rcMonitor.Bottom - topBarHeight);
                         }
 
                         _monitors.Add(new MonitorInfo

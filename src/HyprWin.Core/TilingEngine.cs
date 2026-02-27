@@ -252,6 +252,14 @@ public sealed class TilingEngine
 
             var targetRect = leaf.ComputedRect;
 
+            // Restore (un-maximize / un-minimize) BEFORE repositioning.
+            // If SW_RESTORE is called after SetWindowPos, Windows overrides our
+            // position with the window's own "restore" coordinates.
+            if (NativeMethods.IsZoomed(window.Handle) || NativeMethods.IsIconic(window.Handle))
+            {
+                NativeMethods.ShowWindow(window.Handle, NativeMethods.SW_RESTORE);
+            }
+
             // Account for DWM invisible borders (extend window beyond target to compensate)
             var adjustedRect = AdjustForDwmBorders(window.Handle, targetRect);
 
@@ -266,12 +274,6 @@ public sealed class TilingEngine
             }
 
             window.Bounds = targetRect;
-
-            // Ensure the window is restored (not maximized/minimized)
-            if (NativeMethods.IsZoomed(window.Handle) || NativeMethods.IsIconic(window.Handle))
-            {
-                NativeMethods.ShowWindow(window.Handle, NativeMethods.SW_RESTORE);
-            }
         }
     }
 

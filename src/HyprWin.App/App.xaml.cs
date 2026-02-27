@@ -80,7 +80,14 @@ public partial class App : Application
             _animationEngine = new AnimationEngine();
             _animationEngine.UpdateFromConfig(config.Animations);
 
-            // 4. Enumerate monitors
+            // 4a. Hide native taskbar NOW — before enumerating monitors,
+            //     so that Windows' work-area snapshot already reflects the
+            //     hidden state when MonitorManager runs (belt-and-suspenders;
+            //     MonitorManager uses rcMonitor anyway).
+            _taskbarManager = new TaskbarManager();
+            _taskbarManager.HideTaskbar();
+
+            // 4b. Enumerate monitors
             _monitorManager = new MonitorManager();
             _monitorManager.Enumerate(
                 config.TopBar.Enabled ? config.TopBar.Height : 0,
@@ -105,27 +112,23 @@ public partial class App : Application
             _dispatcher.SetTerminalCommand(config.General.TerminalCommand);
             _dispatcher.SetWorkspaceMode(config.General.WorkspaceMode);
 
-            // 9. Hide native taskbar
-            _taskbarManager = new TaskbarManager();
-            _taskbarManager.HideTaskbar();
-
-            // 10. Install keyboard hook (must be on UI thread)
+            // 9. Install keyboard hook (must be on UI thread)
             _keyboardHook = new KeyboardHook();
             RegisterKeybinds(config);
             _keyboardHook.Install();
 
-            // 11. Start window tracking & discover existing windows
+            // 10. Start window tracking & discover existing windows
             _windowTracker.Start(_monitorManager);
             _workspaceManager.AssignExistingWindows();
 
-            // 12. Wire up workspace events
+            // 11. Wire up workspace events
             _workspaceManager.RetileRequested += ws =>
             {
                 _tilingEngine.RebuildTree(ws);
                 _tilingEngine.TileWorkspace(ws);
             };
 
-            // 13. Wire up window tracker events
+            // 12. Wire up window tracker events
             _windowTracker.WindowAdded += OnWindowAdded;
             _windowTracker.WindowRemoved += OnWindowRemoved;
             _windowTracker.FocusChanged += OnFocusChanged;

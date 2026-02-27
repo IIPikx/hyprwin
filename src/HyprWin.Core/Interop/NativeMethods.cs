@@ -123,6 +123,10 @@ public static class NativeMethods
     public const uint ABE_TOP       = 1;
     public const uint ABE_BOTTOM    = 3;
 
+    // Shell broadcast
+    public const uint WM_SETTINGCHANGE = 0x001A;
+    public static readonly IntPtr HWND_BROADCAST = new IntPtr(0xFFFF);
+
     // AnimateWindow flags
     public const uint AW_SLIDE         = 0x00040000;
     public const uint AW_ACTIVATE      = 0x00020000;
