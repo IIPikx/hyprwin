@@ -25,11 +25,6 @@ public sealed class KeyboardHook : IDisposable
     // Win key staleness detection — prevents _winDown getting stuck in VM/RDP
     private long _lastWinEventTick;
 
-    // Background timer: periodically checks the physical Win key state and resets
-    // _winDown if the key was released while our hook was not active (e.g. exclusive
-    // fullscreen game that bypasses WH_KEYBOARD_LL for Win key-up events).
-    private System.Threading.Timer? _winStateSyncTimer;
-
     // Registered keybind actions: (Modifiers, VKey) -> Action
     private readonly Dictionary<(KeybindParser.Modifiers, int), Action> _keybindActions = new();
 
@@ -82,21 +77,6 @@ public sealed class KeyboardHook : IDisposable
         _winDown = false;
         NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
         NativeMethods.keybd_event((byte)NativeMethods.VK_RWIN, 0, NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
-
-        // Start background Win-state sync (250 ms interval).
-        // Catches cases where exclusive fullscreen apps eat the Win key-up event.
-        _winStateSyncTimer = new System.Threading.Timer(_ =>
-        {
-            if (!_winDown) return;
-            bool physical = NativeMethods.GetAsyncKeyState(NativeMethods.VK_LWIN) < 0
-                         || NativeMethods.GetAsyncKeyState(NativeMethods.VK_RWIN) < 0;
-            if (!physical)
-            {
-                _winDown = false;
-                _heldCombos.Clear();
-                Logger.Instance.Debug("Win key state corrected by background sync (was stuck)");
-            }
-        }, null, 250, 250);
 
         Logger.Instance.Info("Low-level keyboard hook installed");
     }
@@ -365,9 +345,6 @@ public sealed class KeyboardHook : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-
-        _winStateSyncTimer?.Dispose();
-        _winStateSyncTimer = null;
 
         if (_hookId != IntPtr.Zero)
         {
