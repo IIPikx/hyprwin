@@ -27,6 +27,7 @@ public partial class App : Application
     // ──────────────── UI ────────────────
     private TaskbarIcon? _trayIcon;
     private readonly List<TopBarWindow> _topBarWindows = new();
+    private SystemInfoService _sysInfoService = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -70,6 +71,10 @@ public partial class App : Application
             _configManager = new ConfigManager(configPath);
             var config = _configManager.Load();
             Logger.Instance.Info($"Config loaded from: {_configManager.ConfigPath}");
+
+            // 2b. Start hardware + audio monitoring service
+            _sysInfoService = new SystemInfoService();
+            _sysInfoService.Start();
 
             // 3. Initialize animation engine
             _animationEngine = new AnimationEngine();
@@ -180,6 +185,7 @@ public partial class App : Application
             // Restore all managed windows to their original positions
             _windowTracker?.RestoreAllWindows();
 
+            _sysInfoService?.Dispose();
             _windowTracker?.Dispose();
             _borderRenderer?.Dispose();
             _animationEngine?.Dispose();
@@ -344,7 +350,7 @@ public partial class App : Application
 
         foreach (var mon in _monitorManager.Monitors)
         {
-            var bar = new TopBarWindow(mon, config, _workspaceManager);
+            var bar = new TopBarWindow(mon, config, _workspaceManager, _sysInfoService);
             bar.SetConfigPath(_configManager.ConfigPath);
             _topBarWindows.Add(bar);
             bar.Show();

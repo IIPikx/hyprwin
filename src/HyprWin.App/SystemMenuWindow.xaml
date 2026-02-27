@@ -1,0 +1,250 @@
+<Window x:Class="HyprWin.App.SystemMenuWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="Height"
+        Width="300"
+        Title="HyprWinSystemMenu">
+
+    <Window.Resources>
+        <!-- Card style -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background"     Value="#28313244"/>
+            <Setter Property="CornerRadius"   Value="8"/>
+            <Setter Property="Padding"        Value="14,10"/>
+            <Setter Property="Margin"         Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Section label -->
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="#7f849c"/>
+            <Setter Property="FontSize"    Value="9"/>
+            <Setter Property="FontWeight"  Value="SemiBold"/>
+            <Setter Property="Margin"      Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Value text -->
+        <Style x:Key="ValueText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#cdd6f4"/>
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Icon text -->
+        <Style x:Key="IconText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#89b4fa"/>
+            <Setter Property="FontSize"   Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin"     Value="0,0,8,0"/>
+        </Style>
+
+        <!-- Control button (prev/play/next) -->
+        <ControlTemplate x:Key="FlatBtn" TargetType="Button">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="8,4">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="MouseOver">
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetName="Bd"
+                                                Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                To="#40585b70" Duration="0:0:0.1"/>
+                            </Storyboard>
+                        </VisualState>
+                        <VisualState x:Name="Normal"/>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+            </Border>
+        </ControlTemplate>
+
+        <Style x:Key="MediaBtn" TargetType="Button">
+            <Setter Property="Background"   Value="Transparent"/>
+            <Setter Property="BorderBrush"  Value="Transparent"/>
+            <Setter Property="Foreground"   Value="#cdd6f4"/>
+            <Setter Property="FontSize"     Value="16"/>
+            <Setter Property="Cursor"       Value="Hand"/>
+            <Setter Property="Template"     Value="{StaticResource FlatBtn}"/>
+        </Style>
+
+        <!-- Toggle pill button -->
+        <Style x:Key="ToggleBtn" TargetType="Button">
+            <Setter Property="Background"   Value="#40585b70"/>
+            <Setter Property="Foreground"   Value="#cdd6f4"/>
+            <Setter Property="BorderBrush"  Value="Transparent"/>
+            <Setter Property="FontSize"     Value="11"/>
+            <Setter Property="Cursor"       Value="Hand"/>
+            <Setter Property="Padding"      Value="12,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Outer rounded container -->
+    <Border CornerRadius="12" Padding="12,12,12,4">
+        <Border.Background>
+            <SolidColorBrush Color="#EF1e1e2e"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6"/>
+        </Border.Effect>
+
+        <StackPanel>
+
+            <!-- ── NOW PLAYING ─────────────────────────────────── -->
+            <Border Style="{StaticResource Card}" x:Name="MediaCard">
+                <StackPanel>
+                    <TextBlock Text="NOW PLAYING" Style="{StaticResource SectionLabel}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="44"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Album art placeholder -->
+                        <Border Grid.Column="0" Width="40" Height="40"
+                                Background="#40585b70" CornerRadius="6"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="♪" Foreground="#89b4fa" FontSize="18"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Title + Artist -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="MediaTitle"
+                                       Style="{StaticResource ValueText}"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="Nothing playing"/>
+                            <TextBlock x:Name="MediaArtist"
+                                       Foreground="#7f849c" FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text=""/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Controls -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,10,0,0">
+                        <Button x:Name="BtnPrev" Content="⏮" Style="{StaticResource MediaBtn}"
+                                Click="BtnPrev_Click" ToolTip="Previous"/>
+                        <Button x:Name="BtnPlayPause" Content="▶" Style="{StaticResource MediaBtn}"
+                                Click="BtnPlayPause_Click" ToolTip="Play / Pause"
+                                Margin="12,0" FontSize="18"/>
+                        <Button x:Name="BtnNext" Content="⏭" Style="{StaticResource MediaBtn}"
+                                Click="BtnNext_Click" ToolTip="Next"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ── VOLUME ──────────────────────────────────────── -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="VOLUME" Style="{StaticResource SectionLabel}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="36"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button x:Name="BtnMute" Grid.Column="0"
+                                Content="🔊" Style="{StaticResource MediaBtn}"
+                                FontSize="16" Click="BtnMute_Click"
+                                Margin="0,0,8,0"/>
+
+                        <Slider x:Name="VolumeSlider" Grid.Column="1"
+                                Minimum="0" Maximum="100" SmallChange="1" LargeChange="5"
+                                VerticalAlignment="Center"
+                                ValueChanged="VolumeSlider_ValueChanged">
+                            <Slider.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                                                 Color="#89b4fa"/>
+                            </Slider.Resources>
+                        </Slider>
+
+                        <TextBlock x:Name="VolumeLabel" Grid.Column="2"
+                                   Style="{StaticResource ValueText}"
+                                   HorizontalAlignment="Right"
+                                   Margin="8,0,0,0"
+                                   Text="--"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ── NETWORK ─────────────────────────────────────── -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="NETWORK" Style="{StaticResource SectionLabel}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="NetIcon" Style="{StaticResource IconText}" Text="🌐"/>
+                        <StackPanel>
+                            <TextBlock x:Name="NetName"
+                                       Style="{StaticResource ValueText}"
+                                       FontWeight="SemiBold"
+                                       Text="Not connected"/>
+                            <TextBlock x:Name="NetType"
+                                       Foreground="#7f849c" FontSize="11"
+                                       Text=""/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ── BLUETOOTH ───────────────────────────────────── -->
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Style="{StaticResource IconText}" Text="🔵"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource ValueText}"
+                                   FontWeight="SemiBold" Text="Bluetooth"/>
+                        <TextBlock x:Name="BtStatus"
+                                   Foreground="#7f849c" FontSize="11" Text="Unavailable"/>
+                    </StackPanel>
+                    <Button x:Name="BtnBluetooth" Grid.Column="2"
+                            Style="{StaticResource ToggleBtn}"
+                            Content="OFF"
+                            Click="BtnBluetooth_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- ── CLOSE ROW ───────────────────────────────────── -->
+            <Button Content="✕  Close"
+                    HorizontalAlignment="Right"
+                    Background="Transparent" BorderBrush="Transparent"
+                    Foreground="#7f849c" FontSize="11"
+                    Cursor="Hand" Margin="0,0,0,8"
+                    Click="BtnClose_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="8,4" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+        </StackPanel>
+    </Border>
+</Window>

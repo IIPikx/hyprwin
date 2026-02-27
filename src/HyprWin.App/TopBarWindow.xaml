@@ -74,12 +74,43 @@
                 <TextBlock x:Name="CpuText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
+                <TextBlock x:Name="CpuTempText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+                <TextBlock x:Name="GpuText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+                <TextBlock x:Name="GpuTempText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
                 <TextBlock x:Name="MemoryText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
                 <TextBlock x:Name="VolumeText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
+                <!-- System Menu Button (macOS Control Center style) -->
+                <Button x:Name="SystemMenuButton"
+                        Content="⌃"
+                        Click="SystemMenuButton_Click"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        FontSize="15"
+                        Padding="6,2"
+                        Margin="4,0,0,0"
+                        Cursor="Hand"
+                        ToolTip="System Menu">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <!-- Settings Button -->
                 <Button x:Name="SettingsButton"
                         Content="⚙"
                         Click="SettingsButton_Click"
@@ -87,7 +118,7 @@
                         BorderBrush="Transparent"
                         FontSize="15"
                         Padding="6,2"
-                        Margin="4,0,0,0"
+                        Margin="2,0,0,0"
                         Cursor="Hand"
                         ToolTip="Settings">
                     <Button.Template>

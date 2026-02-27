@@ -113,7 +113,7 @@ public sealed class TopBarConfig
     public int FontSize { get; init; } = 12;
     public TopBarModulesConfig ModulesLeft { get; init; } = new() { Modules = new() { "workspaces" } };
     public TopBarModulesConfig ModulesCenter { get; init; } = new() { Modules = new() { "clock" } };
-    public TopBarModulesConfig ModulesRight { get; init; } = new() { Modules = new() { "tray", "cpu", "memory", "volume" } };
+    public TopBarModulesConfig ModulesRight { get; init; } = new() { Modules = new() { "tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "volume" } };
     public ClockConfig Clock { get; init; } = new();
     public WorkspacesWidgetConfig Workspaces { get; init; } = new();
 }

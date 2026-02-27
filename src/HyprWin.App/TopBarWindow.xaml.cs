@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -24,24 +22,22 @@ public partial class TopBarWindow : Window
     private string _configPath = "";
 
     private DispatcherTimer? _clockTimer;
-    private DispatcherTimer? _systemTimer;
+    private SystemInfoService? _sysInfo;
 
-    // System metrics
-    private PerformanceCounter? _cpuCounter;
-
-    public TopBarWindow(MonitorInfo monitor, HyprWinConfig config, WorkspaceManager workspaceManager)
+    public TopBarWindow(MonitorInfo monitor, HyprWinConfig config, WorkspaceManager workspaceManager, SystemInfoService sysInfo)
     {
         InitializeComponent();
 
         _monitor = monitor;
         _config = config;
         _workspaceManager = workspaceManager;
+        _sysInfo = sysInfo;
 
         ApplyConfig(config);
         PositionOnMonitor();
 
         SetupTimers();
-        SetupSystemCounters();
+        _sysInfo.MetricsUpdated += OnMetricsUpdated;
         UpdateWorkspaceIndicators();
     }
 
@@ -87,25 +83,25 @@ public partial class TopBarWindow : Window
         ClockText.Foreground = fgBrush;
 
         // Apply to system modules
-        CpuText.FontFamily = fontFamily;
-        CpuText.FontSize = fontSize;
-        CpuText.Foreground = fgBrush;
-
-        MemoryText.FontFamily = fontFamily;
-        MemoryText.FontSize = fontSize;
-        MemoryText.Foreground = fgBrush;
-
-        VolumeText.FontFamily = fontFamily;
-        VolumeText.FontSize = fontSize;
-        VolumeText.Foreground = fgBrush;
+        foreach (var tb in new[] { CpuText, CpuTempText, GpuText, GpuTempText, MemoryText, VolumeText })
+        {
+            tb.FontFamily = fontFamily;
+            tb.FontSize = fontSize;
+            tb.Foreground = fgBrush;
+        }
 
         // Show/hide modules based on config
         var rightModules = bar.ModulesRight.Modules;
-        CpuText.Visibility = rightModules.Contains("cpu") ? Visibility.Visible : Visibility.Collapsed;
-        MemoryText.Visibility = rightModules.Contains("memory") ? Visibility.Visible : Visibility.Collapsed;
-        VolumeText.Visibility = rightModules.Contains("volume") ? Visibility.Visible : Visibility.Collapsed;
+        CpuText.Visibility     = rightModules.Contains("cpu")      ? Visibility.Visible : Visibility.Collapsed;
+        CpuTempText.Visibility = rightModules.Contains("cpu_temp") ? Visibility.Visible : Visibility.Collapsed;
+        GpuText.Visibility     = rightModules.Contains("gpu")      ? Visibility.Visible : Visibility.Collapsed;
+        GpuTempText.Visibility = rightModules.Contains("gpu_temp") ? Visibility.Visible : Visibility.Collapsed;
+        MemoryText.Visibility  = rightModules.Contains("memory")   ? Visibility.Visible : Visibility.Collapsed;
+        VolumeText.Visibility  = rightModules.Contains("volume")   ? Visibility.Visible : Visibility.Collapsed;
 
-        // Settings button
+        // Buttons
+        SystemMenuButton.Foreground = fgBrush;
+        SystemMenuButton.FontFamily = fontFamily;
         SettingsButton.Foreground = fgBrush;
         SettingsButton.FontFamily = fontFamily;
 
@@ -146,26 +142,7 @@ public partial class TopBarWindow : Window
         _clockTimer.Tick += (_, _) => UpdateClock();
         _clockTimer.Start();
 
-        // System metrics — every 2 seconds
-        _systemTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(2)
-        };
-        _systemTimer.Tick += (_, _) => UpdateSystemMetrics();
-        _systemTimer.Start();
-    }
-
-    private void SetupSystemCounters()
-    {
-        try
-        {
-            _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            _cpuCounter.NextValue(); // First call always returns 0
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Warn($"Failed to initialize CPU counter: {ex.Message}");
-        }
+        // System metrics are driven by SystemInfoService.MetricsUpdated events.
     }
 
     // ──────────────── Clock ────────────────
@@ -189,43 +166,32 @@ public partial class TopBarWindow : Window
 
     // ──────────────── System Metrics ────────────────
 
-    private void UpdateSystemMetrics()
+    private void OnMetricsUpdated(SystemMetrics m)
     {
-        // CPU
+        Dispatcher.Invoke(() => ApplySystemMetrics(m));
+    }
+
+    private void ApplySystemMetrics(SystemMetrics m)
+    {
         if (CpuText.Visibility == Visibility.Visible)
-        {
-            try
-            {
-                float cpu = _cpuCounter?.NextValue() ?? 0;
-                CpuText.Text = $"  {cpu:F0}%";
-            }
-            catch
-            {
-                CpuText.Text = "  --";
-            }
-        }
+            CpuText.Text = $" CPU {m.CpuUsagePct:F0}%";
 
-        // Memory
+        if (CpuTempText.Visibility == Visibility.Visible)
+            CpuTempText.Text = m.CpuTempC > 0 ? $" {m.CpuTempC:F0}°C" : " --°C";
+
+        if (GpuText.Visibility == Visibility.Visible)
+            GpuText.Text = m.GpuUsagePct >= 0 ? $" GPU {m.GpuUsagePct:F0}%" : " GPU --";
+
+        if (GpuTempText.Visibility == Visibility.Visible)
+            GpuTempText.Text = m.GpuTempC > 0 ? $" {m.GpuTempC:F0}°C" : " --°C";
+
         if (MemoryText.Visibility == Visibility.Visible)
-        {
-            try
-            {
-                var memStatus = new NativeMethods.MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<NativeMethods.MEMORYSTATUSEX>() };
-                if (NativeMethods.GlobalMemoryStatusEx(ref memStatus))
-                {
-                    MemoryText.Text = $"  {memStatus.dwMemoryLoad}%";
-                }
-            }
-            catch
-            {
-                MemoryText.Text = "  --";
-            }
-        }
+            MemoryText.Text = $" RAM {m.RamUsagePct:F0}%";
 
-        // Volume (simplified — just show a static indicator for now)
         if (VolumeText.Visibility == Visibility.Visible)
         {
-            VolumeText.Text = " 墳";
+            string icon = m.IsMuted ? "🔇" : "🔊";
+            VolumeText.Text = $" {icon} {m.Volume}%";
         }
     }
 
@@ -269,6 +235,26 @@ public partial class TopBarWindow : Window
         }
     }
 
+    private void SystemMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sysInfo == null) return;
+        try
+        {
+            var btn = (Button)sender;
+            var pos = btn.PointToScreen(new Point(0, btn.ActualHeight));
+            var menu = new SystemMenuWindow(_sysInfo)
+            {
+                Left = pos.X,
+                Top = pos.Y + 4
+            };
+            menu.Show();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to open system menu", ex);
+        }
+    }
+
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -302,8 +288,8 @@ public partial class TopBarWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _clockTimer?.Stop();
-        _systemTimer?.Stop();
-        _cpuCounter?.Dispose();
+        if (_sysInfo != null)
+            _sysInfo.MetricsUpdated -= OnMetricsUpdated;
         base.OnClosed(e);
     }
 }

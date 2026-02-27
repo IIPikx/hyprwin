@@ -110,7 +110,7 @@ modules = ["workspaces"]
 modules = ["clock"]
 
 [top_bar.modules_right]
-modules = ["tray", "cpu", "memory", "volume"]
+modules = ["tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "volume"]
 
 # Clock widget configuration
 [top_bar.clock]
