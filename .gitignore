@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+
+# Publish output — keep config but not the executable
+publish/*.exe
+publish/*.pdb
+publish/*.dll
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+.idea/
+
+# NuGet
+*.nupkg
+packages/
+
+# OS
+Thumbs.db
+.DS_Store

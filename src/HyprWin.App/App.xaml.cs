@@ -39,6 +39,22 @@ public partial class App : Application
             Logger.Instance.Info("═══════════════════════════════════════");
             Logger.Instance.Info("HyprWin starting...");
 
+            // 1a. Refuse to run inside an RDP / Terminal Services session.
+            //     Hooks and tiling would affect the wrong desktop context and
+            //     keyboard shortcuts would interfere with the remote session.
+            if (SessionHelper.IsRemoteSession())
+            {
+                Logger.Instance.Info("Remote Desktop session detected — HyprWin will not start.");
+                MessageBox.Show(
+                    "HyprWin does not run inside Remote Desktop (RDP) sessions.\n" +
+                    "Please start HyprWin directly on the local machine.",
+                    "HyprWin — RDP not supported",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                Shutdown(0);
+                return;
+            }
+
             // 2. Load configuration (supports --config <path> argument)
             string? configPath = null;
             var args = Environment.GetCommandLineArgs();

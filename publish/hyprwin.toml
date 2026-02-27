@@ -120,7 +120,7 @@ inactive_indicator = "○"               # Symbol for inactive workspaces
 # Programs and window classes to exclude from tiling/management.
 # These windows will not be moved, resized, or tiled by HyprWin.
 [exclude]
-process_names = ["Taskmgr", "3CXDesktopApp"]
+process_names = ["Taskmgr", "3CXDesktopApp", "3CXSoftphone"]
 # Add process names (without .exe) to exclude from tiling, e.g. "vlc", "obs64", "Discord"
 class_names   = []
 # Add window class names to exclude, e.g. "TaskManagerWindow", "MozillaDialogClass"

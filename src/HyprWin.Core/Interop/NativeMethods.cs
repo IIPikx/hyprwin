@@ -411,8 +411,9 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
-    public const int SM_CXSCREEN = 0;
-    public const int SM_CYSCREEN = 1;
+    public const int SM_CXSCREEN      = 0;
+    public const int SM_CYSCREEN      = 1;
+    public const int SM_REMOTESESSION = 0x1000; // Non-zero when running inside a Terminal Services / RDP client session
 
     // DPI
     [DllImport("user32.dll")]
