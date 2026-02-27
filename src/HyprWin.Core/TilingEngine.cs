@@ -385,15 +385,14 @@ public sealed class TilingEngine
         var leaf = workspace.LayoutRoot.FindLeaf(hwnd);
         if (leaf == null) return false;
 
-        bool positiveDir  = (dx > 0 || dy > 0);
-        bool isHorizontal = dx != 0;
+        bool isHorizontal  = dx != 0;
+        double dirSign     = dx != 0 ? dx : dy; // +1 or -1
 
         var current = leaf;
         while (current.Parent != null)
         {
             var parent = current.Parent;
 
-            // Guard against a corrupted node (shouldn't happen in a valid BSP tree)
             if (parent.First == null || parent.Second == null) { current = parent; continue; }
 
             bool splitMatchesAxis = isHorizontal
@@ -402,43 +401,24 @@ public sealed class TilingEngine
 
             if (splitMatchesAxis)
             {
-                bool windowIsFirst = IsDescendantOf(leaf, parent.First);
+                // Bidirectional semantics:
+                //   delta = dirSign * step moves the split line in the pressed direction.
+                //   • FIRST child  + RIGHT → ratio grows   (window grows right)
+                //   • FIRST child  + LEFT  → ratio shrinks (window shrinks from right) ← was broken
+                //   • SECOND child + LEFT  → ratio shrinks (window grows left)
+                //   • SECOND child + RIGHT → ratio grows   (window shrinks from left)
+                double delta    = dirSign * step;
+                double newRatio = Math.Clamp(parent.Ratio + delta, 0.10, 0.90);
+                if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false;
 
-                // Hyprland edge semantics:
-                //   positive direction (RIGHT / DOWN) → the split line is on the "+" side of
-                //     the FIRST child → only adjustable when window is the first child.
-                //   negative direction (LEFT / UP)    → the split line is on the "−" side of
-                //     the SECOND child → only adjustable when window is the second child.
-                bool canResize = positiveDir ? windowIsFirst : !windowIsFirst;
-
-                if (canResize)
-                {
-                    // Increase ratio → first child grows; decrease → second child grows.
-                    double delta    = positiveDir ? step : -step;
-                    double newRatio = Math.Clamp(parent.Ratio + delta, 0.10, 0.90);
-                    if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false;
-
-                    parent.Ratio = newRatio;
-                    return true;
-                }
-                // This split doesn't have the right edge — keep walking up to find one that does.
+                parent.Ratio = newRatio;
+                return true;
             }
 
             current = parent;
         }
 
-        return false; // No adjustable edge found in this direction
-    }
-
-    /// <summary>
-    /// Check if a node is a descendant of (or equal to) another node.
-    /// </summary>
-    private static bool IsDescendantOf(BspNode node, BspNode potentialAncestor)
-    {
-        if (node == potentialAncestor) return true;
-        if (!potentialAncestor.IsSplit) return false;
-        return (potentialAncestor.First != null && IsDescendantOf(node, potentialAncestor.First))
-            || (potentialAncestor.Second != null && IsDescendantOf(node, potentialAncestor.Second));
+        return false; // No adjustable split found on this axis
     }
 
     /// <summary>

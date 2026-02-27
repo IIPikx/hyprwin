@@ -262,7 +262,9 @@ public sealed class WindowDispatcher
             if (targetWs == null) return;
 
             // Transfer the window's workspace/monitor membership.
-            _workspaceManager.MoveWindowToMonitor(fgHwnd, adjMon.Index);
+            // fireRetile:false — we handle retiling explicitly below (animate:false is required
+            // so that ForceForegroundWindow finds windows at their final positions)
+            _workspaceManager.MoveWindowToMonitor(fgHwnd, adjMon.Index, fireRetile: false);
 
             // Retile both workspaces immediately — no animation.
             // This settles all window positions before ForceForeground is called,
@@ -438,18 +440,30 @@ public sealed class WindowDispatcher
         var hwnd = NativeMethods.GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return;
 
+        int sourceMonIdx = _workspaceManager.GetFocusedMonitorIndex();
+        var sourceWs     = _workspaceManager.GetActiveWorkspace(sourceMonIdx);
+
         if (_workspaceMode.Equals("monitor_bound", StringComparison.OrdinalIgnoreCase))
         {
-            // Workspace N = Monitor N: move window to that monitor
-            _workspaceManager.MoveWindowToMonitor(hwnd, workspaceIndex);
+            var targetWs = _workspaceManager.GetActiveWorkspace(workspaceIndex);
+            _workspaceManager.MoveWindowToMonitor(hwnd, workspaceIndex, fireRetile: false);
+
+            if (sourceWs != null)
+            {
+                _tilingEngine.RebuildTree(sourceWs);
+                _tilingEngine.TileWorkspace(sourceWs, animate: false);
+            }
+            if (targetWs != null)
+            {
+                _tilingEngine.RebuildTree(targetWs);
+                _tilingEngine.TileWorkspace(targetWs, animate: false);
+            }
         }
         else
         {
-            // Virtual mode: move to virtual workspace on current monitor
             _workspaceManager.MoveWindowToWorkspace(hwnd, workspaceIndex);
         }
 
-        // Follow focus so the window stays active on the target
         NativeMethods.ForceForegroundWindow(hwnd);
     }
 
@@ -497,8 +511,24 @@ public sealed class WindowDispatcher
     {
         var hwnd = NativeMethods.GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return;
-        _workspaceManager.MoveWindowToMonitor(hwnd, monitorIndex);
-        // Follow focus so the window stays active on the target monitor
+
+        int sourceMonIdx = _workspaceManager.GetFocusedMonitorIndex();
+        var sourceWs     = _workspaceManager.GetActiveWorkspace(sourceMonIdx);
+        var targetWs     = _workspaceManager.GetActiveWorkspace(monitorIndex);
+
+        _workspaceManager.MoveWindowToMonitor(hwnd, monitorIndex, fireRetile: false);
+
+        if (sourceWs != null)
+        {
+            _tilingEngine.RebuildTree(sourceWs);
+            _tilingEngine.TileWorkspace(sourceWs, animate: false);
+        }
+        if (targetWs != null)
+        {
+            _tilingEngine.RebuildTree(targetWs);
+            _tilingEngine.TileWorkspace(targetWs, animate: false);
+        }
+
         NativeMethods.ForceForegroundWindow(hwnd);
     }
 

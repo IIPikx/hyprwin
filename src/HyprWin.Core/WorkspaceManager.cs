@@ -272,7 +272,7 @@ public sealed class WorkspaceManager
     /// <summary>
     /// Move a window to a different monitor's active workspace.
     /// </summary>
-    public void MoveWindowToMonitor(IntPtr hwnd, int targetMonitorIndex)
+    public void MoveWindowToMonitor(IntPtr hwnd, int targetMonitorIndex, bool fireRetile = true)
     {
         var targetMon = _monitorManager.GetByIndex(targetMonitorIndex);
         if (targetMon == null) return;
@@ -316,9 +316,12 @@ public sealed class WorkspaceManager
 
         // Retile both
         int sourceMonIdx = sourceWs.MonitorIndex;
-        if (GetActiveWorkspaceIndex(sourceMonIdx) == sourceWs.Id)
-            RetileRequested?.Invoke(sourceWs);
-        RetileRequested?.Invoke(targetWs);
+        if (fireRetile)
+        {
+            if (GetActiveWorkspaceIndex(sourceMonIdx) == sourceWs.Id)
+                RetileRequested?.Invoke(sourceWs);
+            RetileRequested?.Invoke(targetWs);
+        }
 
         Logger.Instance.Info($"Moved window {hwnd} to monitor {targetMonitorIndex}");
     }

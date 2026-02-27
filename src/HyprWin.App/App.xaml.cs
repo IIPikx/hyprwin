@@ -178,6 +178,10 @@ public partial class App : Application
     {
         Logger.Instance.Info("HyprWin shutting down...");
 
+        // Restore taskbar FIRST and unconditionally — if anything below throws,
+        // the user still gets their taskbar back.
+        try { _taskbarManager?.Dispose(); } catch { }
+
         try
         {
             _keyboardHook?.Dispose();
@@ -189,7 +193,6 @@ public partial class App : Application
             _windowTracker?.Dispose();
             _borderRenderer?.Dispose();
             _animationEngine?.Dispose();
-            _taskbarManager?.Dispose(); // Restores taskbar
             _configManager?.Dispose();
 
             foreach (var bar in _topBarWindows)

@@ -143,7 +143,7 @@ public sealed class WorkspacesWidgetConfig
  public sealed class ExcludeConfig
 {
     /// <summary>Process names (without .exe) to exclude from management.</summary>
-    public List<string> ProcessNames { get; init; } = new() { "Taskmgr", "3CXDesktopApp" };
+    public List<string> ProcessNames { get; init; } = new() { "Taskmgr", "3CXDesktopApp", "mstsc", "msrdc" };
 
     /// <summary>Window class names to exclude from management.</summary>
     public List<string> ClassNames { get; init; } = new();

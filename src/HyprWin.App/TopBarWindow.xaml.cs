@@ -241,11 +241,26 @@ public partial class TopBarWindow : Window
         try
         {
             var btn = (Button)sender;
-            var pos = btn.PointToScreen(new Point(0, btn.ActualHeight));
+
+            // PointToScreen returns physical (device) pixels.
+            // Window.Left/Top expects logical WPF pixels.
+            // Retrieve the DPI scale of this window to convert correctly.
+            var source = PresentationSource.FromVisual(this);
+            double dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+
+            // Bottom-right corner of the button in physical pixels
+            var physBR = btn.PointToScreen(new Point(btn.ActualWidth, btn.ActualHeight));
+
+            // Convert to logical pixels and anchor right edge of menu to right edge of button
+            const double menuWidth = 300;
+            double logicalRight = physBR.X / dpiX;
+            double logicalTop   = physBR.Y / dpiY + 4;
+
             var menu = new SystemMenuWindow(_sysInfo)
             {
-                Left = pos.X,
-                Top = pos.Y + 4
+                Left = logicalRight - menuWidth,
+                Top  = logicalTop
             };
             menu.Show();
         }
