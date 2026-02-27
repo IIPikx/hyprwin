@@ -39,8 +39,8 @@ public sealed class WindowDispatcher
     public void FocusDown() => FocusInDirection(0, 1);
 
     /// <summary>
-    /// Move focus to the nearest window in the given direction using spatial heuristics.
-    /// If no window exists in that direction, focus stays on the current window (no cycling).
+    /// Move focus to the nearest window in the given direction — Hyprland-style edge-biased scoring.
+    /// Searches across ALL monitors' active workspaces. No cycling — stays put when edge is reached.
     /// </summary>
     private void FocusInDirection(int dx, int dy)
     {
@@ -49,76 +49,75 @@ public sealed class WindowDispatcher
             var fgHwnd = NativeMethods.GetForegroundWindow();
             Logger.Instance.Debug($"FocusInDirection({dx},{dy}) — foreground={fgHwnd}");
 
-            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            if (!NativeMethods.GetWindowRect(fgHwnd, out var focusedRect) || focusedRect.Width <= 0)
+                return;
 
-            // Collect visible windows from ALL active workspaces across every monitor.
-            // This enables seamless cross-monitor directional focus.
-            var allWindows = _monitorManager.Monitors
+            // Collect visible, non-minimized windows from ALL active workspaces across every monitor.
+            // Filter out off-screen windows (workspace-switch stash at -32000,-32000).
+            var candidates = _monitorManager.Monitors
                 .SelectMany(mon =>
                     _workspaceManager.GetActiveWorkspace(mon.Index)?.Windows
                     ?? Enumerable.Empty<ManagedWindow>())
-                .Where(w => !w.IsMinimized && NativeMethods.IsWindow(w.Handle) && NativeMethods.IsWindowVisible(w.Handle))
+                .Where(w => w.Handle != fgHwnd
+                    && !w.IsMinimized
+                    && NativeMethods.IsWindow(w.Handle)
+                    && NativeMethods.IsWindowVisible(w.Handle))
                 .ToList();
 
-            Logger.Instance.Debug($"FocusInDirection({dx},{dy}): {allWindows.Count} visible windows across all monitors");
+            Logger.Instance.Debug($"FocusInDirection({dx},{dy}): {candidates.Count} candidates across all monitors");
+            if (candidates.Count == 0) return;
 
-            if (allWindows.Count == 0) return;
-            if (allWindows.Count == 1)
-            {
-                // Only one window — just focus it
-                NativeMethods.ForceForegroundWindow(allWindows[0].Handle);
-                _workspaceManager.UpdateFocus(allWindows[0].Handle);
-                return;
-            }
-
-            // Spatial direction search — find the closest window in the given direction
             ManagedWindow? best = null;
+            double bestScore = double.MaxValue;
 
-            if (NativeMethods.GetWindowRect(fgHwnd, out var currentRect) && currentRect.Width > 0)
+            foreach (var candidate in candidates)
             {
-                double bestScore = double.MaxValue;
-                int cx = currentRect.CenterX;
-                int cy = currentRect.CenterY;
+                candidate.RefreshBounds();
+                var cb = candidate.Bounds;
 
-                foreach (var candidate in allWindows.Where(w => w.Handle != fgHwnd))
+                // Skip stashed off-screen windows
+                if (cb.Left < -5000 || cb.Top < -5000) continue;
+
+                // ── Hyprland-style direction check ──────────────────────────────
+                // Use EDGE distances rather than center-to-center.
+                // Direction is satisfied when the candidate's leading edge
+                // is strictly past the focused window's trailing edge in that axis.
+                bool inDirection;
+                int primaryGap;    // pixels between the two facing edges (can be 0 for adjacent)
+                int perpendicular; // off-axis offset between centers
+
+                if (dx != 0)
                 {
-                    candidate.RefreshBounds();
-                    int tx = candidate.Bounds.CenterX;
-                    int ty = candidate.Bounds.CenterY;
+                    int focusedEdge  = dx > 0 ? focusedRect.Right  : focusedRect.Left;
+                    int candidatEdge = dx > 0 ? cb.Left             : cb.Right;
+                    int relEdge      = (candidatEdge - focusedEdge) * dx; // positive = in direction
+                    inDirection = relEdge > -8; // allow 8px overlap tolerance for adjacent tiles
+                    primaryGap  = Math.Max(0, relEdge);
+                    perpendicular = Math.Abs(cb.CenterY - focusedRect.CenterY);
+                }
+                else
+                {
+                    int focusedEdge  = dy > 0 ? focusedRect.Bottom : focusedRect.Top;
+                    int candidatEdge = dy > 0 ? cb.Top              : cb.Bottom;
+                    int relEdge      = (candidatEdge - focusedEdge) * dy;
+                    inDirection = relEdge > -8;
+                    primaryGap  = Math.Max(0, relEdge);
+                    perpendicular = Math.Abs(cb.CenterX - focusedRect.CenterX);
+                }
 
-                    int relX = tx - cx;
-                    int relY = ty - cy;
+                if (!inDirection) continue;
 
-                    // Check if the candidate is in the desired direction
-                    bool inDirection = dx switch
-                    {
-                        -1 => relX < -10, // at least 10px to the left
-                        1 => relX > 10,
-                        _ => true
-                    } && dy switch
-                    {
-                        -1 => relY < -10,
-                        1 => relY > 10,
-                        _ => true
-                    };
-
-                    if (!inDirection) continue;
-
-                    double dist = Math.Sqrt(relX * relX + relY * relY);
-                    double axisPenalty = dx != 0
-                        ? Math.Abs(relY) * 2.0
-                        : Math.Abs(relX) * 2.0;
-
-                    double score = dist + axisPenalty;
-                    if (score < bestScore)
-                    {
-                        bestScore = score;
-                        best = candidate;
-                    }
+                // Score = gap to the facing edge  +  perpendicular offset (weighted)
+                // This mirrors Hyprland's "closest in direction" heuristic:
+                // windows directly in line are always preferred over diagonal ones.
+                double score = primaryGap + perpendicular * 1.5;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = candidate;
                 }
             }
 
-            // No fallback cycling — if nothing is found in that direction, stay put
             if (best == null)
             {
                 Logger.Instance.Debug("FocusInDirection: no candidate in direction, staying put");
@@ -150,8 +149,8 @@ public sealed class WindowDispatcher
     public void ResizeDown() => ResizeInDirection(0, 1);
 
     /// <summary>
-    /// Resize the focused window by adjusting the BSP split ratio in the given direction.
-    /// Other windows adjust automatically.
+    /// Resize the focused window by adjusting the nearest BSP split ratio in the given direction.
+    /// All sibling windows in the workspace retile immediately (Hyprland-style, no animation).
     /// </summary>
     private void ResizeInDirection(int dx, int dy)
     {
@@ -164,9 +163,12 @@ public sealed class WindowDispatcher
             var ws = _workspaceManager.GetActiveWorkspace(monIdx);
             if (ws == null) return;
 
-            if (_tilingEngine.ResizeInDirection(ws, hwnd, dx, dy, 0.02))
+            // Step size: 3.5 % of the relevant split.
+            // Immediate retile (animate:false) so rapid key-repeats are always
+            // applied to the up-to-date layout — no stale mid-animation positions.
+            if (_tilingEngine.ResizeInDirection(ws, hwnd, dx, dy, 0.035))
             {
-                _tilingEngine.TileWorkspace(ws);
+                _tilingEngine.TileWorkspace(ws, animate: false);
                 Logger.Instance.Debug($"Resized window {hwnd} in direction ({dx},{dy})");
             }
         }
@@ -177,7 +179,10 @@ public sealed class WindowDispatcher
     }
 
     /// <summary>
-    /// Swap the focused window with the nearest window in the given direction.
+    /// Move the focused window in the given direction — Hyprland-style:
+    /// · Within workspace: swap with the nearest tiling neighbour (BSP handle swap + retile).
+    /// · At workspace edge: move the window to the adjacent monitor's active workspace.
+    /// All retiling is done without animation so that positions are settled before focus moves.
     /// </summary>
     private void SwapInDirection(int dx, int dy)
     {
@@ -187,67 +192,88 @@ public sealed class WindowDispatcher
             if (!NativeMethods.GetWindowRect(fgHwnd, out var currentRect)) return;
 
             int monIdx = _workspaceManager.GetFocusedMonitorIndex();
-            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            var ws    = _workspaceManager.GetActiveWorkspace(monIdx);
             if (ws == null) return;
 
-            var candidates = ws.Windows
+            // ── 1. Look for a swap candidate on the same workspace ──────────────
+            ManagedWindow? best   = null;
+            double         bestScore = double.MaxValue;
+
+            var localCandidates = ws.Windows
                 .Where(w => w.Handle != fgHwnd && !w.IsMinimized && !w.IsFloating)
                 .ToList();
 
-            // Empty candidate list is handled below — we may still move to an adjacent monitor.
-
-            ManagedWindow? best = null;
-            double bestDist = double.MaxValue;
-
-            int cx = currentRect.CenterX;
-            int cy = currentRect.CenterY;
-
-            foreach (var candidate in candidates)
+            foreach (var candidate in localCandidates)
             {
                 candidate.RefreshBounds();
-                int relX = candidate.Bounds.CenterX - cx;
-                int relY = candidate.Bounds.CenterY - cy;
+                var cb = candidate.Bounds;
+                if (cb.Left < -5000 || cb.Top < -5000) continue;
 
-                bool inDirection = dx switch
+                // Edge-based direction check (same as FocusInDirection)
+                bool inDirection;
+                int  primaryGap;
+                int  perpendicular;
+
+                if (dx != 0)
                 {
-                    -1 => relX < 0,
-                    1 => relX > 0,
-                    _ => true
-                } && dy switch
+                    int fEdge = dx > 0 ? currentRect.Right : currentRect.Left;
+                    int cEdge = dx > 0 ? cb.Left            : cb.Right;
+                    int rel   = (cEdge - fEdge) * dx;
+                    inDirection  = rel > -8;
+                    primaryGap   = Math.Max(0, rel);
+                    perpendicular = Math.Abs(cb.CenterY - currentRect.CenterY);
+                }
+                else
                 {
-                    -1 => relY < 0,
-                    1 => relY > 0,
-                    _ => true
-                };
+                    int fEdge = dy > 0 ? currentRect.Bottom : currentRect.Top;
+                    int cEdge = dy > 0 ? cb.Top              : cb.Bottom;
+                    int rel   = (cEdge - fEdge) * dy;
+                    inDirection  = rel > -8;
+                    primaryGap   = Math.Max(0, rel);
+                    perpendicular = Math.Abs(cb.CenterX - currentRect.CenterX);
+                }
 
                 if (!inDirection) continue;
 
-                double dist = Math.Sqrt(relX * relX + relY * relY);
-                if (dist < bestDist)
-                {
-                    bestDist = dist;
-                    best = candidate;
-                }
+                double score = primaryGap + perpendicular * 1.5;
+                if (score < bestScore) { bestScore = score; best = candidate; }
             }
 
             if (best != null)
             {
+                // Swap the two window handles in the BSP tree and retile immediately.
+                // animate:false ensures both windows snap to their new positions
+                // before any follow-up key-press is processed.
                 _tilingEngine.SwapWindows(ws, fgHwnd, best.Handle);
-                _tilingEngine.TileWorkspace(ws);
+                _tilingEngine.TileWorkspace(ws, animate: false);
+                // Keep focus on the moved window (which now occupies the neighbour's old slot)
+                NativeMethods.ForceForegroundWindow(fgHwnd);
                 Logger.Instance.Debug($"Swapped window with: {best}");
+                return;
             }
-            else
-            {
-                // No swap target in this direction on the current workspace —
-                // move the window to the nearest monitor in that direction.
-                var adjMon = GetAdjacentMonitor(monIdx, dx, dy);
-                if (adjMon != null)
-                {
-                    _workspaceManager.MoveWindowToMonitor(fgHwnd, adjMon.Index);
-                    NativeMethods.ForceForegroundWindow(fgHwnd);
-                    Logger.Instance.Debug($"Moved window to adjacent monitor {adjMon.Index}");
-                }
-            }
+
+            // ── 2. No candidate on this workspace → move to adjacent monitor ────
+            var adjMon = GetAdjacentMonitor(monIdx, dx, dy);
+            if (adjMon == null) return;
+
+            // Capture source workspace now (before the move changes ownership).
+            var sourceWs = ws;
+            var targetWs = _workspaceManager.GetActiveWorkspace(adjMon.Index);
+            if (targetWs == null) return;
+
+            // Transfer the window's workspace/monitor membership.
+            _workspaceManager.MoveWindowToMonitor(fgHwnd, adjMon.Index);
+
+            // Retile both workspaces immediately — no animation.
+            // This settles all window positions before ForceForeground is called,
+            // avoiding the "window still mid-animation when focused" glitch.
+            _tilingEngine.RebuildTree(sourceWs);
+            _tilingEngine.TileWorkspace(sourceWs, animate: false);
+            _tilingEngine.RebuildTree(targetWs);
+            _tilingEngine.TileWorkspace(targetWs, animate: false);
+
+            NativeMethods.ForceForegroundWindow(fgHwnd);
+            Logger.Instance.Debug($"Moved window to monitor {adjMon.Index}");
         }
         catch (Exception ex)
         {

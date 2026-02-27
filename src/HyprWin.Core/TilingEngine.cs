@@ -366,51 +366,68 @@ public sealed class TilingEngine
     }
 
     /// <summary>
-    /// Resize the focused window in a direction by adjusting the nearest relevant split ratio.
-    /// dx/dy: direction (-1 = left/up, +1 = right/down). step: ratio change (e.g. 0.02 = 2%).
+    /// Resize the focused window in the given direction — Hyprland semantics:
+    ///   dx=+1 (RIGHT) → grow window rightward  → find the nearest Horizontal split where
+    ///                    the window is the FIRST (left) child and move the split line right.
+    ///   dx=-1 (LEFT)  → grow window leftward   → find the nearest Horizontal split where
+    ///                    the window is the SECOND (right) child and move the split line left.
+    ///   dy=+1 (DOWN)  → grow window downward   → Vertical split, window is FIRST (top) child.
+    ///   dy=-1 (UP)    → grow window upward      → Vertical split, window is SECOND (bottom) child.
+    ///
+    /// The tree is walked upward so that inner splits are preferred over outer ones.
+    /// If no adjustable edge is found in the direction (e.g., window is at the screen edge),
+    /// the method returns false and nothing changes.
     /// </summary>
-    public bool ResizeInDirection(Workspace workspace, IntPtr hwnd, int dx, int dy, double step = 0.02)
+    public bool ResizeInDirection(Workspace workspace, IntPtr hwnd, int dx, int dy, double step = 0.035)
     {
         if (workspace.LayoutRoot == null) return false;
 
         var leaf = workspace.LayoutRoot.FindLeaf(hwnd);
         if (leaf == null) return false;
 
-        // Walk up the tree to find the split node that matches the resize axis
+        bool positiveDir  = (dx > 0 || dy > 0);
+        bool isHorizontal = dx != 0;
+
         var current = leaf;
         while (current.Parent != null)
         {
             var parent = current.Parent;
 
-            // For horizontal resize (dx != 0), find a Horizontal split (left/right)
-            // For vertical resize (dy != 0), find a Vertical split (top/bottom)
-            bool matchesAxis = (dx != 0 && parent.Direction == BspNode.SplitDirection.Horizontal)
-                            || (dy != 0 && parent.Direction == BspNode.SplitDirection.Vertical);
+            // Guard against a corrupted node (shouldn't happen in a valid BSP tree)
+            if (parent.First == null || parent.Second == null) { current = parent; continue; }
 
-            if (matchesAxis)
+            bool splitMatchesAxis = isHorizontal
+                ? parent.Direction == BspNode.SplitDirection.Horizontal
+                : parent.Direction == BspNode.SplitDirection.Vertical;
+
+            if (splitMatchesAxis)
             {
-                // Determine if we should grow or shrink based on which child we're in
-                bool isFirst = IsDescendantOf(leaf, parent.First!);
+                bool windowIsFirst = IsDescendantOf(leaf, parent.First);
 
-                // Growing right/down when in first child = increase ratio
-                // Growing left/up when in second child = decrease ratio
-                double delta;
-                if (isFirst)
-                    delta = (dx > 0 || dy > 0) ? step : -step;
-                else
-                    delta = (dx > 0 || dy > 0) ? -step : step;
+                // Hyprland edge semantics:
+                //   positive direction (RIGHT / DOWN) → the split line is on the "+" side of
+                //     the FIRST child → only adjustable when window is the first child.
+                //   negative direction (LEFT / UP)    → the split line is on the "−" side of
+                //     the SECOND child → only adjustable when window is the second child.
+                bool canResize = positiveDir ? windowIsFirst : !windowIsFirst;
 
-                double newRatio = Math.Clamp(parent.Ratio + delta, 0.15, 0.85);
-                if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false;
+                if (canResize)
+                {
+                    // Increase ratio → first child grows; decrease → second child grows.
+                    double delta    = positiveDir ? step : -step;
+                    double newRatio = Math.Clamp(parent.Ratio + delta, 0.10, 0.90);
+                    if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false;
 
-                parent.Ratio = newRatio;
-                return true;
+                    parent.Ratio = newRatio;
+                    return true;
+                }
+                // This split doesn't have the right edge — keep walking up to find one that does.
             }
 
             current = parent;
         }
 
-        return false; // No matching split found
+        return false; // No adjustable edge found in this direction
     }
 
     /// <summary>
