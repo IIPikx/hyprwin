@@ -89,8 +89,8 @@ public sealed class AnimationsConfig
 
 public sealed class LayoutConfig
 {
-    public int GapsInner { get; init; } = 8;
-    public int GapsOuter { get; init; } = 7;
+    public int GapsInner { get; init; } = 4;
+    public int GapsOuter { get; init; } = 0;
     public int BorderSize { get; init; } = 2;
     public int Rounding { get; init; } = 8;
 }

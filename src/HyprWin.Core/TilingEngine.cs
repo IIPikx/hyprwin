@@ -421,17 +421,14 @@ public sealed class TilingEngine
     }
 
     /// <summary>
-    /// Resize the focused window in the given direction — Hyprland semantics:
-    ///   dx=+1 (RIGHT) → grow window rightward  → find the nearest Horizontal split where
-    ///                    the window is the FIRST (left) child and move the split line right.
-    ///   dx=-1 (LEFT)  → grow window leftward   → find the nearest Horizontal split where
-    ///                    the window is the SECOND (right) child and move the split line left.
-    ///   dy=+1 (DOWN)  → grow window downward   → Vertical split, window is FIRST (top) child.
-    ///   dy=-1 (UP)    → grow window upward      → Vertical split, window is SECOND (bottom) child.
-    ///
-    /// The tree is walked upward so that inner splits are preferred over outer ones.
-    /// If no adjustable edge is found in the direction (e.g., window is at the screen edge),
-    /// the method returns false and nothing changes.
+    /// Resize the focused window in the given direction.
+    /// Finds the nearest ancestor BSP split on the key's axis and moves it in the pressed direction:
+    ///   RIGHT/DOWN → ratio += step (split moves right/down)
+    ///   LEFT/UP    → ratio -= step (split moves left/up)
+    /// Because the same split is used regardless of which side of it the window is on,
+    /// this supports both growing AND shrinking:
+    ///   FIRST child  + RIGHT → grow   |  FIRST child  + LEFT → shrink
+    ///   SECOND child + LEFT  → grow   |  SECOND child + RIGHT → shrink
     /// </summary>
     public bool ResizeInDirection(Workspace workspace, IntPtr hwnd, int dx, int dy, double step = 0.035)
     {
@@ -441,23 +438,12 @@ public sealed class TilingEngine
         if (leaf == null) return false;
 
         bool isHorizontal = dx != 0;
-        int  dirSign      = dx != 0 ? dx : dy; // +1 or -1
+        // delta always moves the split in the key direction: RIGHT/DOWN = +, LEFT/UP = -
+        double delta = (dx != 0 ? dx : dy) * step;
 
-        // Walk up the tree looking for a split that has a boundary the window can push in
-        // the requested direction.
-        //
-        //  RIGHT (+1): grow right edge  → Horizontal split where window is the FIRST  (left)  child → increase ratio
-        //  LEFT  (-1): grow left  edge  → Horizontal split where window is the SECOND (right) child → decrease ratio
-        //  DOWN  (+1): grow bottom edge → Vertical   split where window is the FIRST  (top)   child → increase ratio
-        //  UP    (-1): grow top   edge  → Vertical   split where window is the SECOND (bottom)child → decrease ratio
-        //
-        // "window is FIRST"  means the moving edge is between current and parent.Second → increase ratio grows window.
-        // "window is SECOND" means the moving edge is between parent.First and current  → decrease ratio grows window.
-        //
-        // If the nearest ancestor split in the axis is on the wrong side (window is at the screen
-        // edge in that direction), keep walking up — maybe an outer split can be used on that side.
-        // This lets e.g. a nested right-edge window grow by adjusting its grandparent split.
-
+        // Walk up the tree to find the nearest ancestor split on the key axis,
+        // then move that split by delta — nearest inner split is preferred so that
+        // resize affects the most immediately adjacent boundary.
         var current = leaf;
         while (current.Parent != null)
         {
@@ -470,31 +456,16 @@ public sealed class TilingEngine
 
             if (axisMatches)
             {
-                bool currentIsFirst  = parent.First  == current;
-                bool currentIsSecond = parent.Second == current;
-
-                // Check if this split's boundary is the one we want to move:
-                //   dirSign > 0 (RIGHT/DOWN)  → need window on the FIRST side  (increase ratio → grow)
-                //   dirSign < 0 (LEFT/UP)     → need window on the SECOND side (decrease ratio → grow)
-                bool canUse = dirSign > 0 ? currentIsFirst : currentIsSecond;
-
-                if (canUse)
-                {
-                    // +1 → increase ratio, -1 → decrease ratio — always grows the window
-                    double delta    = dirSign * step;
-                    double newRatio = Math.Clamp(parent.Ratio + delta, 0.05, 0.95);
-                    if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false; // already at monitor edge
-
-                    parent.Ratio = newRatio;
-                    return true;
-                }
-                // Wrong side — keep walking up; an outer split may have a usable boundary
+                double newRatio = Math.Clamp(parent.Ratio + delta, 0.05, 0.95);
+                if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false; // already at limit
+                parent.Ratio = newRatio;
+                return true;
             }
 
             current = parent;
         }
 
-        return false; // Window is at the screen edge in this direction
+        return false; // no split on this axis found
     }
 
     /// <summary>

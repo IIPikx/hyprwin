@@ -80,8 +80,8 @@ easing = "ease_out_cubic"         # Options: linear, ease_in, ease_out, ease_out
 
 # ─────────────────────── Layout ───────────────────────
 [layout]
-gaps_inner  = 8    # Pixels between adjacent windows
-gaps_outer  = 7    # Pixels from screen edges
+gaps_inner  = 4    # Pixels between adjacent windows
+gaps_outer  = 0    # Pixels from screen edges
 border_size = 2    # Active/inactive border thickness
 rounding    = 8    # Corner radius in pixels
 
