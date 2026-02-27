@@ -111,23 +111,30 @@ public sealed class TilingEngine
 
     /// <summary>
     /// Add a window to a workspace's BSP tree.
-    /// New windows split the focused window's space (alternating H/V based on depth).
+    /// New windows split the leaf with the best aspect-ratio match (or largest free space).
     /// </summary>
     public void AddWindow(Workspace workspace, IntPtr hwnd)
     {
         if (workspace.LayoutRoot == null)
         {
-            // First window — make it the root leaf
             workspace.LayoutRoot = BspNode.Leaf(hwnd);
             return;
         }
 
-        // Find where to insert: at the focused window, or the last leaf
+        // Find the best leaf to split: prefer the focused window's leaf,
+        // fall back to the leaf with the largest ComputedRect area.
         var focusedHwnd = workspace.FocusedWindow?.Handle ?? IntPtr.Zero;
-        var targetLeaf = focusedHwnd != IntPtr.Zero
+        BspNode? targetLeaf = focusedHwnd != IntPtr.Zero
             ? workspace.LayoutRoot.FindLeaf(focusedHwnd)
             : null;
-        targetLeaf ??= workspace.LayoutRoot.GetLeaves().LastOrDefault();
+
+        if (targetLeaf == null)
+        {
+            // Pick the leaf with the largest area so new windows get a reasonable slot
+            targetLeaf = workspace.LayoutRoot.GetLeaves()
+                .OrderByDescending(l => (long)l.ComputedRect.Width * l.ComputedRect.Height)
+                .FirstOrDefault();
+        }
 
         if (targetLeaf == null)
         {
@@ -135,22 +142,28 @@ public sealed class TilingEngine
             return;
         }
 
-        // Determine split direction based on depth in tree (alternating H/V)
-        // This ensures proper alternation regardless of ComputedRect state
-        int depth = GetNodeDepth(targetLeaf);
-        var direction = (depth % 2 == 0)
-            ? BspNode.SplitDirection.Horizontal  // Even depth → side by side
-            : BspNode.SplitDirection.Vertical;   // Odd depth → stacked
+        // Choose split direction based on the leaf's computed rect aspect ratio.
+        // Fall back to depth-based alternation if no ComputedRect is set yet.
+        BspNode.SplitDirection direction;
+        var cr = targetLeaf.ComputedRect;
+        if (cr.Width > 0 && cr.Height > 0)
+            direction = cr.Width >= cr.Height
+                ? BspNode.SplitDirection.Horizontal
+                : BspNode.SplitDirection.Vertical;
+        else
+        {
+            int depth = GetNodeDepth(targetLeaf);
+            direction = depth % 2 == 0
+                ? BspNode.SplitDirection.Horizontal
+                : BspNode.SplitDirection.Vertical;
+        }
 
-        // Create the new split
         var existingLeaf = BspNode.Leaf(targetLeaf.WindowHandle);
-        var newLeaf = BspNode.Leaf(hwnd);
-        var splitNode = BspNode.Split(direction, existingLeaf, newLeaf);
+        var newLeaf      = BspNode.Leaf(hwnd);
+        var splitNode    = BspNode.Split(direction, existingLeaf, newLeaf);
 
-        // Replace the target leaf in the tree
         if (targetLeaf.Parent == null)
         {
-            // Target was root
             workspace.LayoutRoot = splitNode;
         }
         else
@@ -231,13 +244,14 @@ public sealed class TilingEngine
         var mon = _monitorManager.GetByIndex(workspace.MonitorIndex);
         if (mon == null) return;
 
-        var workArea = mon.EffectiveWorkArea;
+        var workArea    = mon.EffectiveWorkArea;
+        var monBounds   = mon.Bounds;   // physical monitor bounds — used for clamping
 
         // Apply outer gaps
         var tilingArea = new NativeMethods.RECT(
-            workArea.Left + _gapsOuter,
-            workArea.Top + _gapsOuter,
-            workArea.Right - _gapsOuter,
+            workArea.Left   + _gapsOuter,
+            workArea.Top    + _gapsOuter,
+            workArea.Right  - _gapsOuter,
             workArea.Bottom - _gapsOuter);
 
         // Calculate layout
@@ -247,21 +261,23 @@ public sealed class TilingEngine
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
             var window = workspace.Windows.FirstOrDefault(w => w.Handle == leaf.WindowHandle);
-            if (window == null || window.IsFloating || window.IsFullscreen || window.IsMinimized)
-                continue;
+            if (window == null || window.IsFloating || window.IsFullscreen) continue;
+
+            // Refresh minimized state — the cached flag may be stale
+            window.IsMinimized = NativeMethods.IsIconic(window.Handle);
+            if (window.IsMinimized) continue;
 
             var targetRect = leaf.ComputedRect;
 
-            // Restore (un-maximize / un-minimize) BEFORE repositioning.
-            // If SW_RESTORE is called after SetWindowPos, Windows overrides our
-            // position with the window's own "restore" coordinates.
-            if (NativeMethods.IsZoomed(window.Handle) || NativeMethods.IsIconic(window.Handle))
-            {
+            // Restore (un-maximize) BEFORE repositioning so Windows doesn't
+            // override our SetWindowPos with the window's own restore coords.
+            if (NativeMethods.IsZoomed(window.Handle))
                 NativeMethods.ShowWindow(window.Handle, NativeMethods.SW_RESTORE);
-            }
 
-            // Account for DWM invisible borders (extend window beyond target to compensate)
-            var adjustedRect = AdjustForDwmBorders(window.Handle, targetRect);
+            // Account for DWM invisible borders, then clamp to physical monitor
+            // bounds so windows never bleed onto adjacent monitors.
+            var adjustedRect = ClampToMonitor(
+                AdjustForDwmBorders(window.Handle, targetRect), monBounds);
 
             if (animate && _animationEngine.IsEnabled)
             {
@@ -317,6 +333,21 @@ public sealed class TilingEngine
         NativeMethods.SetWindowPos(hwnd, IntPtr.Zero,
             rect.Left, rect.Top, rect.Width, rect.Height,
             NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+    }
+
+    /// <summary>
+    /// Clamp a rect so it does not exceed the physical monitor bounds.
+    /// This prevents DWM-border-adjusted windows from bleeding onto adjacent monitors.
+    /// A 1px inset from the hard boundary is allowed to avoid hairline artefacts.
+    /// </summary>
+    private static NativeMethods.RECT ClampToMonitor(
+        NativeMethods.RECT rect, NativeMethods.RECT monBounds)
+    {
+        return new NativeMethods.RECT(
+            Math.Max(rect.Left,   monBounds.Left   - 8),
+            Math.Max(rect.Top,    monBounds.Top    - 8),
+            Math.Min(rect.Right,  monBounds.Right  + 8),
+            Math.Min(rect.Bottom, monBounds.Bottom + 8));
     }
 
     /// <summary>
@@ -425,13 +456,62 @@ public sealed class TilingEngine
 
     /// <summary>
     /// Build a fresh BSP tree for a workspace from its window list.
+    /// Uses a balanced recursive split so that N windows produce a near-grid layout
+    /// rather than a degenerate right-leaning chain.
     /// </summary>
     public void RebuildTree(Workspace workspace)
     {
-        workspace.LayoutRoot = null;
-        foreach (var w in workspace.Windows.Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized))
-        {
-            AddWindow(workspace, w.Handle);
-        }
+        var handles = workspace.Windows
+            .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized
+                        && NativeMethods.IsWindow(w.Handle))
+            .Select(w => w.Handle)
+            .ToList();
+
+        workspace.LayoutRoot = handles.Count == 0
+            ? null
+            : BuildBalancedSubtree(handles, GetMonitorArea(workspace.MonitorIndex));
     }
-}
+
+    private NativeMethods.RECT GetMonitorArea(int monitorIndex)
+    {
+        var mon = _monitorManager.GetByIndex(monitorIndex);
+        return mon?.EffectiveWorkArea ?? new NativeMethods.RECT(0, 0, 1920, 1080);
+    }
+
+    /// <summary>
+    /// Recursively build a balanced BSP subtree for a list of window handles,
+    /// choosing split direction based on the segment's aspect ratio.
+    /// </summary>
+    private static BspNode BuildBalancedSubtree(
+        List<IntPtr> handles, NativeMethods.RECT area)
+    {
+        if (handles.Count == 1)
+            return BspNode.Leaf(handles[0]);
+
+        // Choose split direction that keeps cells closest to square
+        var dir = area.Width >= area.Height
+            ? BspNode.SplitDirection.Horizontal
+            : BspNode.SplitDirection.Vertical;
+
+        int mid = handles.Count / 2;
+        var firstHandles  = handles.Take(mid).ToList();
+        var secondHandles = handles.Skip(mid).ToList();
+
+        NativeMethods.RECT firstArea, secondArea;
+        if (dir == BspNode.SplitDirection.Horizontal)
+        {
+            int splitX = area.Left + area.Width / 2;
+            firstArea  = new NativeMethods.RECT(area.Left, area.Top, splitX, area.Bottom);
+            secondArea = new NativeMethods.RECT(splitX,    area.Top, area.Right, area.Bottom);
+        }
+        else
+        {
+            int splitY = area.Top + area.Height / 2;
+            firstArea  = new NativeMethods.RECT(area.Left, area.Top,    area.Right, splitY);
+            secondArea = new NativeMethods.RECT(area.Left, splitY, area.Right, area.Bottom);
+        }
+
+        var firstNode  = BuildBalancedSubtree(firstHandles,  firstArea);
+        var secondNode = BuildBalancedSubtree(secondHandles, secondArea);
+        return BspNode.Split(dir, firstNode, secondNode);
+    }}

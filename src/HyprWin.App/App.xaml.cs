@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using H.NotifyIcon;
 using HyprWin.Core;
@@ -181,8 +182,11 @@ public partial class App : Application
     {
         Logger.Instance.Info("HyprWin shutting down...");
 
-        // Restore taskbar FIRST and unconditionally — if anything below throws,
-        // the user still gets their taskbar back.
+        // Restore taskbar: kill Explorer and restart it so the taskbar & system
+        // tray come back cleanly (SW_SHOW alone is unreliable after SW_HIDE).
+        try { RestartExplorer(); } catch { }
+
+        // Dispose TaskbarManager as well so rcWork is refreshed on the shell side
         try { _taskbarManager?.Dispose(); } catch { }
 
         try
@@ -212,6 +216,46 @@ public partial class App : Application
         Logger.Instance.Dispose();
 
         base.OnExit(e);
+    }
+
+    // ──────────────── Explorer Restart ────────────────
+
+    /// <summary>
+    /// Kills all explorer.exe instances and starts a fresh one.
+    /// This is the most reliable way to restore the taskbar, system tray, and
+    /// work-area reservation after HyprWin has hidden/modified the shell.
+    /// </summary>
+    private static void RestartExplorer()
+    {
+        try
+        {
+            Logger.Instance.Info("Restarting Explorer to restore taskbar...");
+
+            // Kill all explorer instances
+            foreach (var proc in Process.GetProcessesByName("explorer"))
+            {
+                try { proc.Kill(); proc.WaitForExit(3000); }
+                catch { /* ignore — may already have exited */ }
+                finally { proc.Dispose(); }
+            }
+
+            // Brief pause so Windows detects the crash and its auto-restart
+            // doesn't interfere with our explicit restart below.
+            System.Threading.Thread.Sleep(500);
+
+            // Start a fresh explorer (shell mode)
+            Process.Start(new ProcessStartInfo
+            {
+                FileName         = "explorer.exe",
+                UseShellExecute  = true,
+            });
+
+            Logger.Instance.Info("Explorer restarted successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to restart Explorer", ex);
+        }
     }
 
     // ──────────────── Keybind Registration ────────────────
