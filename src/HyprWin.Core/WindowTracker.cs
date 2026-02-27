@@ -344,8 +344,27 @@ public sealed class WindowTracker : IDisposable
         // Skip NOACTIVATE windows
         if ((exStyle & (int)NativeMethods.WS_EX_NOACTIVATE) != 0) return false;
 
+        // Skip Windows 11 XAML / Composition windows.
+        // WS_EX_NOREDIRECTIONBITMAP means the window renders off the normal
+        // GDI/compositor path. Force-positioning them produces a black empty rectangle.
+        // Every legitimate user-facing window we've seen uses standard GDI rendering.
+        // Exception: windows that additionally have WS_EX_APPWINDOW are real app windows.
+        if ((exStyle & (int)NativeMethods.WS_EX_NOREDIRECTIONBITMAP) != 0 &&
+            (exStyle & (int)NativeMethods.WS_EX_APPWINDOW) == 0)
+            return false;
+
         // Skip cloaked windows (UWP/XAML Islands phantom windows)
         if (NativeMethods.IsWindowCloaked(hwnd)) return false;
+
+        // Skip windows with no meaningful initial size (tiny/offscreen utility windows).
+        // Check the real window bounds BEFORE any tiling — if the window starts at
+        // -32000,-32000 (minimized stash) or is smaller than 50×50, it's not a real
+        // manageable app window.
+        if (NativeMethods.GetWindowRect(hwnd, out var initRect))
+        {
+            if (initRect.Left <= -10000 || initRect.Top <= -10000) return false;
+            if (initRect.Width < 50 || initRect.Height < 50) return false;
+        }
 
         // Skip known system windows
         string className = NativeMethods.GetWindowClassName(hwnd);
@@ -374,12 +393,20 @@ public sealed class WindowTracker : IDisposable
     {
         return className switch
         {
-            "Shell_TrayWnd" => true,
-            "Shell_SecondaryTrayWnd" => true,
-            "Progman" => true,
-            "WorkerW" => true,
-            "Windows.UI.Core.CoreWindow" => true,
-            "ApplicationFrameInputSinkWindow" => true,
+            // Standard shell chrome
+            "Shell_TrayWnd"                            => true,
+            "Shell_SecondaryTrayWnd"                   => true,
+            "Progman"                                  => true,
+            "WorkerW"                                  => true,
+            // UWP host windows whose actual content lives in a separate CoreWindow
+            "Windows.UI.Core.CoreWindow"               => true,
+            "ApplicationFrameInputSinkWindow"          => true,
+            // Windows 11 XAML Islands / Composition content hosts
+            "Windows.UI.Composition.DesktopWindowContentBridge" => true,
+            "Windows.UI.Input.InputSite.WindowClass"   => true,
+            // Input Method Editor phantom windows
+            "MSCTFIME UI"                              => true,
+            "Default IME"                              => true,
             _ => false,
         };
     }

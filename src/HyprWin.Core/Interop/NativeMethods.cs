@@ -84,11 +84,12 @@ public static class NativeMethods
     public const uint WS_THICKFRAME   = 0x00040000;
 
     // Extended window styles
-    public const uint WS_EX_TOOLWINDOW   = 0x00000080;
-    public const uint WS_EX_NOACTIVATE   = 0x08000000;
-    public const uint WS_EX_APPWINDOW    = 0x00040000;
-    public const uint WS_EX_TRANSPARENT  = 0x00000020;
-    public const uint WS_EX_LAYERED      = 0x00080000;
+    public const uint WS_EX_TOOLWINDOW             = 0x00000080;
+    public const uint WS_EX_NOACTIVATE             = 0x08000000;
+    public const uint WS_EX_APPWINDOW              = 0x00040000;
+    public const uint WS_EX_TRANSPARENT            = 0x00000020;
+    public const uint WS_EX_LAYERED                = 0x00080000;
+    public const uint WS_EX_NOREDIRECTIONBITMAP    = 0x00200000; // Windows 11 XAML/Composition windows — appear black when force-positioned
 
     // WinEvent constants
     public const uint EVENT_OBJECT_CREATE      = 0x8000;
