@@ -34,10 +34,11 @@ public sealed class KeyboardHook : IDisposable
     // Set of (Modifiers, VKey) combos to passthrough (re-inject for Win+R, etc.)
     private readonly HashSet<(KeybindParser.Modifiers, int)> _passthroughCombos = new();
 
-    // Debounce: prevent key-repeat from firing the same action repeatedly
-    private (KeybindParser.Modifiers mods, int vk) _lastFiredKey;
-    private long _lastFiredTick;
-    private const long DebounceMs = 150;
+    // Key-repeat guard: tracks which (Mods, VKey) combos are currently physically held down.
+    // A keybind fires only once per press (on key-down) and re-arms only after key-up.
+    // This reliably prevents key-repeat duplicates without any time-based debounce that
+    // would accidentally swallow legitimate fast re-presses.
+    private readonly HashSet<(KeybindParser.Modifiers, int)> _heldCombos = new();
 
     public bool IsInstalled => _hookId != IntPtr.Zero;
 
@@ -146,6 +147,7 @@ public sealed class KeyboardHook : IDisposable
         _keybindActions.Clear();
         _suppressedCombos.Clear();
         _passthroughCombos.Clear();
+        _heldCombos.Clear();
         Logger.Instance.Debug("Cleared all keybind registrations");
     }
 
@@ -194,6 +196,7 @@ public sealed class KeyboardHook : IDisposable
                     else if (isKeyUp)
                     {
                         _winDown = false;
+                        _heldCombos.Clear(); // All Super+X combos are now invalid
                         return (IntPtr)1; // Suppress Win key up
                     }
                 }
@@ -219,6 +222,7 @@ public sealed class KeyboardHook : IDisposable
                     {
                         Logger.Instance.Debug("Stale Win key state detected (>2s since last Win event), resetting");
                         _winDown = false;
+                        _heldCombos.Clear();
                     }
 
                     var currentMods = GetCurrentModifiers();
@@ -235,17 +239,14 @@ public sealed class KeyboardHook : IDisposable
                     // 2. Check registered keybinds
                     if (_keybindActions.TryGetValue(comboKey, out var action))
                     {
-                        // Debounce: skip if same key fired within DebounceMs (prevents key-repeat oscillation)
-                        long now = Environment.TickCount64;
-                        if (comboKey == _lastFiredKey && (now - _lastFiredTick) < DebounceMs)
+                        // Only fire once per physical key-down; re-arms on key-up.
+                        // This prevents key-repeat from firing the action repeatedly.
+                        if (!_heldCombos.Contains(comboKey))
                         {
-                            return (IntPtr)1; // Suppress the repeat
+                            _heldCombos.Add(comboKey);
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
                         }
-                        _lastFiredKey = comboKey;
-                        _lastFiredTick = now;
-
-                        System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
-                        return (IntPtr)1; // Suppress
+                        return (IntPtr)1; // Always suppress (even on repeat)
                     }
 
                     // 3. Check suppressed combos
@@ -253,6 +254,26 @@ public sealed class KeyboardHook : IDisposable
                     {
                         return (IntPtr)1; // Suppress
                     }
+
+                    // 4. When SUPER is held, swallow every key that didn't match any of the above.
+                    //    This prevents unintended input leaking to the focused application
+                    //    (e.g. arrow keys moving the cursor in an editor while SUPER is held).
+                    if (_winDown)
+                    {
+                        return (IntPtr)1;
+                    }
+                }
+
+                // ── On key-up: disarm held-combo guard so the next press can fire again ──
+                if (isKeyUp && !IsModifierKey(vk))
+                {
+                    var currentMods = GetCurrentModifiers();
+                    _heldCombos.Remove((currentMods, vk));
+                    // Also remove with Super modifier in case SUPER was released before the key
+                    var modsWithSuper = currentMods | KeybindParser.Modifiers.Super;
+                    var modsWithoutSuper = currentMods & ~KeybindParser.Modifiers.Super;
+                    _heldCombos.Remove((modsWithSuper, vk));
+                    _heldCombos.Remove((modsWithoutSuper, vk));
                 }
             }
             catch (Exception ex)
