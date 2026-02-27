@@ -252,7 +252,7 @@ public sealed class TilingEngine
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
             var w = workspace.Windows.FirstOrDefault(x => x.Handle == leaf.WindowHandle);
-            if (w == null || w.IsFloating || w.IsFullscreen
+            if (w == null || w.IsFloating || w.IsFullscreen || w.IsMinimized
                 || !NativeMethods.IsWindow(w.Handle)
                 || NativeMethods.IsIconic(w.Handle))
             {
@@ -504,10 +504,16 @@ public sealed class TilingEngine
     /// </summary>
     public void RebuildTree(Workspace workspace)
     {
-        // Refresh IsMinimized live before filtering — the cached flag can lag behind
-        // reality if a minimize event was missed (e.g. rapid minimize/restore or stale state).
+        // Promote IsMinimized to true via live IsIconic() — but NEVER reset it to false here.
+        // EVENT_SYSTEM_MINIMIZESTART fires BEFORE the window becomes iconic (the animation is
+        // still in progress), so IsIconic() returns false at that point. We already set
+        // w.IsMinimized = true in the MinimizeStart hook callback; clearing it here with the
+        // live result would race against the animation and include the minimizing window in
+        // the tree, leaving a blank spot once the animation finishes.
+        // IsMinimized is only reset to false by the MinimizeEnd hook callback.
         foreach (var w in workspace.Windows)
-            w.IsMinimized = NativeMethods.IsIconic(w.Handle);
+            if (NativeMethods.IsIconic(w.Handle))
+                w.IsMinimized = true;
 
         var handles = workspace.Windows
             .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized

@@ -289,11 +289,11 @@ public partial class App : Application
         _keyboardHook.RegisterKeybind(kb.LaunchExplorer, _dispatcher.LaunchExplorer);
         _keyboardHook.RegisterKeybind(kb.Screenshot, _dispatcher.TakeScreenshot);
 
-        // Resize
-        _keyboardHook.RegisterKeybind(kb.ResizeLeft, _dispatcher.ResizeLeft);
-        _keyboardHook.RegisterKeybind(kb.ResizeRight, _dispatcher.ResizeRight);
-        _keyboardHook.RegisterKeybind(kb.ResizeUp, _dispatcher.ResizeUp);
-        _keyboardHook.RegisterKeybind(kb.ResizeDown, _dispatcher.ResizeDown);
+        // Resize — registered as repeatable so holding the key continuously resizes
+        _keyboardHook.RegisterRepeatableKeybind(kb.ResizeLeft, _dispatcher.ResizeLeft);
+        _keyboardHook.RegisterRepeatableKeybind(kb.ResizeRight, _dispatcher.ResizeRight);
+        _keyboardHook.RegisterRepeatableKeybind(kb.ResizeUp, _dispatcher.ResizeUp);
+        _keyboardHook.RegisterRepeatableKeybind(kb.ResizeDown, _dispatcher.ResizeDown);
 
         // Workspaces
         _keyboardHook.RegisterKeybind(kb.Workspace1, () => _dispatcher.SwitchToWorkspace(0));

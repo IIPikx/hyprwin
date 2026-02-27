@@ -40,6 +40,11 @@ public sealed class KeyboardHook : IDisposable
     // would accidentally swallow legitimate fast re-presses.
     private readonly HashSet<(KeybindParser.Modifiers, int)> _heldCombos = new();
 
+    // Repeatable keybinds: fire continuously while held, throttled to RepeatIntervalMs.
+    private readonly HashSet<(KeybindParser.Modifiers, int)> _repeatableKeys = new();
+    private readonly Dictionary<(KeybindParser.Modifiers, int), long> _lastRepeatTick = new();
+    private const long RepeatIntervalMs = 60;
+
     public bool IsInstalled => _hookId != IntPtr.Zero;
 
     public KeyboardHook()
@@ -140,6 +145,32 @@ public sealed class KeyboardHook : IDisposable
     }
 
     /// <summary>
+    /// Register a keybind that fires repeatedly while held (for resize/scroll actions).
+    /// The action fires immediately on first press, then again every ~<see cref="RepeatIntervalMs"/> ms
+    /// as long as the key is held. Uses OS key-repeat events for timing (no background timer needed).
+    /// </summary>
+    public void RegisterRepeatableKeybind(string keybindStr, Action action)
+    {
+        var kb = KeybindParser.TryParse(keybindStr);
+        if (kb is null)
+        {
+            Logger.Instance.Warn($"Failed to parse repeatable keybind: '{keybindStr}'");
+            return;
+        }
+
+        var key = (kb.Value.Mods, kb.Value.VirtualKey);
+        if (_keybindActions.ContainsKey(key))
+        {
+            Logger.Instance.Warn($"Keybind conflict: '{keybindStr}' already registered. Skipping.");
+            return;
+        }
+
+        _keybindActions[key] = action;
+        _repeatableKeys.Add(key);
+        Logger.Instance.Debug($"Registered repeatable keybind: {keybindStr} → {kb.Value}");
+    }
+
+    /// <summary>
     /// Clear all registered keybinds, suppressions, and passthroughs (for config reload).
     /// </summary>
     public void ClearRegistrations()
@@ -148,6 +179,8 @@ public sealed class KeyboardHook : IDisposable
         _suppressedCombos.Clear();
         _passthroughCombos.Clear();
         _heldCombos.Clear();
+        _repeatableKeys.Clear();
+        _lastRepeatTick.Clear();
         Logger.Instance.Debug("Cleared all keybind registrations");
     }
 
@@ -239,17 +272,34 @@ public sealed class KeyboardHook : IDisposable
                     // 2. Check registered keybinds
                     if (_keybindActions.TryGetValue(comboKey, out var action))
                     {
-                        // Only fire once per physical key-down; re-arms on key-up.
-                        // This prevents key-repeat from firing the action repeatedly.
-                        if (!_heldCombos.Contains(comboKey))
+                        if (_repeatableKeys.Contains(comboKey))
                         {
-                            _heldCombos.Add(comboKey);
-                            // Grant foreground rights NOW while we still have input context
-                            // from the LL hook. BeginInvoke defers the action, and by then
-                            // the foreground lock would normally be revoked — this prevents
-                            // SetForegroundWindow calls from silently failing.
-                            NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
-                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
+                            // Repeatable keybind: fire on every OS key-repeat event,
+                            // but throttle to RepeatIntervalMs to avoid flooding.
+                            long now = Environment.TickCount64;
+                            bool shouldFire = !_lastRepeatTick.TryGetValue(comboKey, out long lastTick)
+                                              || (now - lastTick) >= RepeatIntervalMs;
+                            if (shouldFire)
+                            {
+                                _lastRepeatTick[comboKey] = now;
+                                NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
+                                System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
+                            }
+                        }
+                        else
+                        {
+                            // Standard: fire once per physical key-down; re-arms on key-up.
+                            // This prevents key-repeat from firing the action repeatedly.
+                            if (!_heldCombos.Contains(comboKey))
+                            {
+                                _heldCombos.Add(comboKey);
+                                // Grant foreground rights NOW while we still have input context
+                                // from the LL hook. BeginInvoke defers the action, and by then
+                                // the foreground lock would normally be revoked — this prevents
+                                // SetForegroundWindow calls from silently failing.
+                                NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
+                                System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
+                            }
                         }
                         return (IntPtr)1; // Always suppress (even on repeat)
                     }
@@ -277,6 +327,9 @@ public sealed class KeyboardHook : IDisposable
                 if (isKeyUp && !IsModifierKey(vk))
                 {
                     _heldCombos.RemoveWhere(k => k.Item2 == vk);
+                    // Clear repeat throttle so next press fires immediately
+                    var repeatKeys = _lastRepeatTick.Keys.Where(k => k.Item2 == vk).ToList();
+                    foreach (var rk in repeatKeys) _lastRepeatTick.Remove(rk);
                 }
             }
             catch (Exception ex)
