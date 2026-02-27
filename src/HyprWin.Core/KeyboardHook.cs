@@ -244,6 +244,11 @@ public sealed class KeyboardHook : IDisposable
                         if (!_heldCombos.Contains(comboKey))
                         {
                             _heldCombos.Add(comboKey);
+                            // Grant foreground rights NOW while we still have input context
+                            // from the LL hook. BeginInvoke defers the action, and by then
+                            // the foreground lock would normally be revoked — this prevents
+                            // SetForegroundWindow calls from silently failing.
+                            NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
                             System.Windows.Application.Current?.Dispatcher.BeginInvoke(action);
                         }
                         return (IntPtr)1; // Always suppress (even on repeat)

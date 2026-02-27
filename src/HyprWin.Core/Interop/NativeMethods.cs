@@ -335,6 +335,21 @@ public static class NativeMethods
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    /// <summary>
+    /// Grants a process the right to call SetForegroundWindow.
+    /// Pass 0xFFFFFFFF to grant all processes (ASFW_ANY).
+    /// </summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AllowSetForegroundWindow(uint dwProcessId);
+
+    // Use ASFW_ANY to grant foreground rights to any process (including ourselves).
+    public const uint ASFW_ANY = 0xFFFFFFFF;
+
+    [DllImport("user32.dll")]
     public static extern IntPtr SetFocus(IntPtr hWnd);
 
     [DllImport("user32.dll")]
@@ -480,17 +495,13 @@ public static class NativeMethods
     /// </summary>
     public static void ForceForegroundWindow(IntPtr hWnd)
     {
-        var foreThread = GetWindowThreadProcessId(GetForegroundWindow(), out _);
-        var appThread = GetCurrentThreadId();
-        if (foreThread != appThread)
-        {
-            AttachThreadInput(foreThread, appThread, true);
-            SetForegroundWindow(hWnd);
-            AttachThreadInput(foreThread, appThread, false);
-        }
-        else
-        {
-            SetForegroundWindow(hWnd);
-        }
+        // Grant foreground rights to our process before calling SetForegroundWindow.
+        // The LL keyboard hook executes with foreground input context, so
+        // AllowSetForegroundWindow works here — but the actual UI action runs via
+        // BeginInvoke with a slight delay. We call AllowSetForegroundWindow(ASFW_ANY)
+        // BOTH at hook time (see KeyboardHook.cs) and here right before the call.
+        AllowSetForegroundWindow(ASFW_ANY);
+        SetForegroundWindow(hWnd);
+        BringWindowToTop(hWnd);
     }
 }
