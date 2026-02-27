@@ -184,6 +184,25 @@ public sealed class KeyboardHook : IDisposable
                 bool isKeyDown = msg is NativeMethods.WM_KEYDOWN or NativeMethods.WM_SYSKEYDOWN;
                 bool isKeyUp = msg is NativeMethods.WM_KEYUP or NativeMethods.WM_SYSKEYUP;
 
+                // ── Sync Win key state from OS (ground-truth) ──
+                // Full-screen exclusive apps (DirectX/Vulkan) can consume Win key
+                // events before our hook sees them, leaving _winDown desynced.
+                // GetAsyncKeyState always reflects the physical hardware state.
+                // Only correct a mismatch when we are NOT currently processing
+                // the Win key itself (to avoid a transient false-negative on keydown).
+                if (vk is not (NativeMethods.VK_LWIN or NativeMethods.VK_RWIN))
+                {
+                    bool winPhysical = ((NativeMethods.GetAsyncKeyState(NativeMethods.VK_LWIN)
+                                      | NativeMethods.GetAsyncKeyState(NativeMethods.VK_RWIN)) & unchecked((short)0x8000)) != 0;
+                    if (_winDown && !winPhysical)
+                    {
+                        // Win was released while the hook was inactive (e.g. exclusive fullscreen)
+                        _winDown = false;
+                        _heldCombos.Clear();
+                        Logger.Instance.Debug("Win key state corrected via GetAsyncKeyState (was stuck down)");
+                    }
+                }
+
                 // ── Track modifier state ──
                 if (vk is NativeMethods.VK_LWIN or NativeMethods.VK_RWIN)
                 {

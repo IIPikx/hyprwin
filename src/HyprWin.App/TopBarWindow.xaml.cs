@@ -163,9 +163,9 @@ public partial class TopBarWindow : Window
         var fg = NativeMethods.GetForegroundWindow();
         if (fg == IntPtr.Zero) { RestoreBarIfNeeded(); return; }
 
-        // Ignore our own window handles
+        // Ignore our own window handle — but still restore the bar if it was hidden
         var ownHwnd = new WindowInteropHelper(this).Handle;
-        if (fg == ownHwnd) return;
+        if (fg == ownHwnd) { RestoreBarIfNeeded(); return; }
 
         // Compare foreground window rect (physical pixels) against this monitor's full bounds
         if (!NativeMethods.GetWindowRect(fg, out var r)) { RestoreBarIfNeeded(); return; }

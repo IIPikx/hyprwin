@@ -244,6 +244,28 @@ public sealed class TilingEngine
         var mon = _monitorManager.GetByIndex(workspace.MonitorIndex);
         if (mon == null) return;
 
+        // ── Validate tree consistency ────────────────────────────────────────
+        // If any leaf references a window that should no longer be tiled
+        // (gone, minimized, fullscreen, floating), rebuild the tree first so
+        // we never leave a blank area where a stale leaf used to be.
+        bool needRebuild = false;
+        foreach (var leaf in workspace.LayoutRoot.GetLeaves())
+        {
+            var w = workspace.Windows.FirstOrDefault(x => x.Handle == leaf.WindowHandle);
+            if (w == null || w.IsFloating || w.IsFullscreen
+                || !NativeMethods.IsWindow(w.Handle)
+                || NativeMethods.IsIconic(w.Handle))
+            {
+                needRebuild = true;
+                break;
+            }
+        }
+        if (needRebuild)
+        {
+            RebuildTree(workspace);
+            if (workspace.LayoutRoot == null) return; // nothing to tile
+        }
+
         var workArea    = mon.EffectiveWorkArea;
         var monBounds   = mon.Bounds;   // physical monitor bounds — used for clamping
 
