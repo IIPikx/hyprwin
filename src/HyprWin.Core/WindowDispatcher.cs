@@ -50,19 +50,17 @@ public sealed class WindowDispatcher
             Logger.Instance.Debug($"FocusInDirection({dx},{dy}) — foreground={fgHwnd}");
 
             int monIdx = _workspaceManager.GetFocusedMonitorIndex();
-            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
-            if (ws == null)
-            {
-                Logger.Instance.Debug("FocusInDirection: no active workspace");
-                return;
-            }
 
-            // Get all visible, non-minimized windows in this workspace
-            var allWindows = ws.Windows
+            // Collect visible windows from ALL active workspaces across every monitor.
+            // This enables seamless cross-monitor directional focus.
+            var allWindows = _monitorManager.Monitors
+                .SelectMany(mon =>
+                    _workspaceManager.GetActiveWorkspace(mon.Index)?.Windows
+                    ?? Enumerable.Empty<ManagedWindow>())
                 .Where(w => !w.IsMinimized && NativeMethods.IsWindow(w.Handle) && NativeMethods.IsWindowVisible(w.Handle))
                 .ToList();
 
-            Logger.Instance.Debug($"FocusInDirection: {allWindows.Count} visible windows on workspace {ws.Id} (monitor {monIdx})");
+            Logger.Instance.Debug($"FocusInDirection({dx},{dy}): {allWindows.Count} visible windows across all monitors");
 
             if (allWindows.Count == 0) return;
             if (allWindows.Count == 1)
@@ -196,7 +194,7 @@ public sealed class WindowDispatcher
                 .Where(w => w.Handle != fgHwnd && !w.IsMinimized && !w.IsFloating)
                 .ToList();
 
-            if (candidates.Count == 0) return;
+            // Empty candidate list is handled below — we may still move to an adjacent monitor.
 
             ManagedWindow? best = null;
             double bestDist = double.MaxValue;
@@ -237,6 +235,18 @@ public sealed class WindowDispatcher
                 _tilingEngine.SwapWindows(ws, fgHwnd, best.Handle);
                 _tilingEngine.TileWorkspace(ws);
                 Logger.Instance.Debug($"Swapped window with: {best}");
+            }
+            else
+            {
+                // No swap target in this direction on the current workspace —
+                // move the window to the nearest monitor in that direction.
+                var adjMon = GetAdjacentMonitor(monIdx, dx, dy);
+                if (adjMon != null)
+                {
+                    _workspaceManager.MoveWindowToMonitor(fgHwnd, adjMon.Index);
+                    NativeMethods.ForceForegroundWindow(fgHwnd);
+                    Logger.Instance.Debug($"Moved window to adjacent monitor {adjMon.Index}");
+                }
             }
         }
         catch (Exception ex)
@@ -412,6 +422,9 @@ public sealed class WindowDispatcher
             // Virtual mode: move to virtual workspace on current monitor
             _workspaceManager.MoveWindowToWorkspace(hwnd, workspaceIndex);
         }
+
+        // Follow focus so the window stays active on the target
+        NativeMethods.ForceForegroundWindow(hwnd);
     }
 
     /// <summary>
@@ -457,8 +470,10 @@ public sealed class WindowDispatcher
     public void MoveToMonitor(int monitorIndex)
     {
         var hwnd = NativeMethods.GetForegroundWindow();
-        if (hwnd != IntPtr.Zero)
-            _workspaceManager.MoveWindowToMonitor(hwnd, monitorIndex);
+        if (hwnd == IntPtr.Zero) return;
+        _workspaceManager.MoveWindowToMonitor(hwnd, monitorIndex);
+        // Follow focus so the window stays active on the target monitor
+        NativeMethods.ForceForegroundWindow(hwnd);
     }
 
     // ──────────────── Launch Apps ────────────────
@@ -495,5 +510,42 @@ public sealed class WindowDispatcher
         {
             Logger.Instance.Error($"Failed to launch terminal '{_terminalCommand}'", ex);
         }
+    }
+
+    // ──────────────── Helpers ────────────────
+
+    /// <summary>
+    /// Returns the nearest monitor in the given direction relative to <paramref name="currentMonIdx"/>.
+    /// Uses center-to-center distance with a directional filter.
+    /// Returns null when no monitor exists in that direction.
+    /// </summary>
+    private MonitorInfo? GetAdjacentMonitor(int currentMonIdx, int dx, int dy)
+    {
+        var currentMon = _monitorManager.GetByIndex(currentMonIdx);
+        if (currentMon == null) return null;
+
+        int cx = currentMon.Bounds.CenterX;
+        int cy = currentMon.Bounds.CenterY;
+
+        MonitorInfo? best = null;
+        double bestScore = double.MaxValue;
+
+        foreach (var mon in _monitorManager.Monitors)
+        {
+            if (mon.Index == currentMonIdx) continue;
+
+            int relX = mon.Bounds.CenterX - cx;
+            int relY = mon.Bounds.CenterY - cy;
+
+            bool inDir = dx switch { -1 => relX < 0, 1 => relX > 0, _ => true }
+                      && dy switch { -1 => relY < 0, 1 => relY > 0, _ => true };
+
+            if (!inDir) continue;
+
+            double score = Math.Sqrt(relX * relX + relY * relY);
+            if (score < bestScore) { bestScore = score; best = mon; }
+        }
+
+        return best;
     }
 }
