@@ -134,6 +134,7 @@ public partial class App : Application
             _windowTracker.WindowRemoved += OnWindowRemoved;
             _windowTracker.FocusChanged += OnFocusChanged;
             _windowTracker.WindowRestored += OnWindowRestored;
+            _windowTracker.WindowMinimized += OnWindowMinimized;
 
             // 14. Initial tile of all workspaces
             foreach (var mon in _monitorManager.Monitors)
@@ -319,6 +320,16 @@ public partial class App : Application
     {
         _workspaceManager.RemoveWindow(hwnd);
         Logger.Instance.Debug($"Window removed from tiling: {hwnd}");
+    }
+
+    private void OnWindowMinimized(IntPtr hwnd)
+    {
+        // A window was minimized — rebuild + retile so the blank leaf disappears.
+        var ws = _workspaceManager.FindWorkspaceForWindow(hwnd);
+        if (ws == null) return;
+        _tilingEngine.RebuildTree(ws);
+        _tilingEngine.TileWorkspace(ws, animate: false);
+        Logger.Instance.Debug($"Retiled after window minimize: {hwnd}");
     }
 
     private void OnWindowRestored(IntPtr hwnd)

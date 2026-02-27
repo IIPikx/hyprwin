@@ -61,11 +61,13 @@ public sealed class WindowTracker : IDisposable
     private IntPtr _eventHookDestroy;
     private IntPtr _eventHookMoveSizeEnd;
     private IntPtr _eventHookMinimizeEnd;
+    private IntPtr _eventHookMinimizeStart;
     private NativeMethods.WinEventDelegate? _createCallback;
     private NativeMethods.WinEventDelegate? _foregroundCallback;
     private NativeMethods.WinEventDelegate? _destroyCallback;
     private NativeMethods.WinEventDelegate? _moveSizeEndCallback;
     private NativeMethods.WinEventDelegate? _minimizeEndCallback;
+    private NativeMethods.WinEventDelegate? _minimizeStartCallback;
     private bool _disposed;
 
     private IntPtr _activeWindowHandle;
@@ -93,6 +95,9 @@ public sealed class WindowTracker : IDisposable
 
     /// <summary>Fired when a window is restored from minimized state.</summary>
     public event Action<IntPtr>? WindowRestored;
+
+    /// <summary>Fires on the UI thread when a tracked window is minimized.</summary>
+    public event Action<IntPtr>? WindowMinimized;
 
     public IReadOnlyList<ManagedWindow> Windows
     {
@@ -204,6 +209,7 @@ public sealed class WindowTracker : IDisposable
         _destroyCallback = OnWinEventDestroy;
         _moveSizeEndCallback = OnWinEventMoveSizeEnd;
         _minimizeEndCallback = OnWinEventMinimizeEnd;
+        _minimizeStartCallback = OnWinEventMinimizeStart;
 
         _eventHookCreate = NativeMethods.SetWinEventHook(
             NativeMethods.EVENT_OBJECT_CREATE, NativeMethods.EVENT_OBJECT_SHOW,
@@ -223,6 +229,12 @@ public sealed class WindowTracker : IDisposable
         _eventHookMoveSizeEnd = NativeMethods.SetWinEventHook(
             NativeMethods.EVENT_SYSTEM_MOVESIZEEND, NativeMethods.EVENT_SYSTEM_MOVESIZEEND,
             IntPtr.Zero, _moveSizeEndCallback,
+            0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
+
+        // MinimizeStart fires when a window is being minimized → update cached flag & retile.
+        _eventHookMinimizeStart = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_SYSTEM_MINIMIZESTART, NativeMethods.EVENT_SYSTEM_MINIMIZESTART,
+            IntPtr.Zero, _minimizeStartCallback,
             0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
 
         // MinimizeEnd fires when a window is restored from minimized state.
@@ -465,6 +477,24 @@ public sealed class WindowTracker : IDisposable
         });
     }
 
+    private void OnWinEventMinimizeStart(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
+        int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        bool tracked;
+        lock (_lock)
+        {
+            tracked = _windows.TryGetValue(hwnd, out var w);
+            if (w != null) w.IsMinimized = true;
+        }
+
+        if (!tracked) return;
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            WindowMinimized?.Invoke(hwnd);
+        });
+    }
+
     private void OnWinEventMinimizeEnd(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
@@ -490,6 +520,7 @@ public sealed class WindowTracker : IDisposable
         if (_eventHookDestroy != IntPtr.Zero) NativeMethods.UnhookWinEvent(_eventHookDestroy);
         if (_eventHookForeground != IntPtr.Zero) NativeMethods.UnhookWinEvent(_eventHookForeground);
         if (_eventHookMoveSizeEnd != IntPtr.Zero) NativeMethods.UnhookWinEvent(_eventHookMoveSizeEnd);
+        if (_eventHookMinimizeStart != IntPtr.Zero) NativeMethods.UnhookWinEvent(_eventHookMinimizeStart);
         if (_eventHookMinimizeEnd != IntPtr.Zero) NativeMethods.UnhookWinEvent(_eventHookMinimizeEnd);
 
         Logger.Instance.Info("Window event hooks removed");

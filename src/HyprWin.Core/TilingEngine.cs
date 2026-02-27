@@ -504,6 +504,11 @@ public sealed class TilingEngine
     /// </summary>
     public void RebuildTree(Workspace workspace)
     {
+        // Refresh IsMinimized live before filtering — the cached flag can lag behind
+        // reality if a minimize event was missed (e.g. rapid minimize/restore or stale state).
+        foreach (var w in workspace.Windows)
+            w.IsMinimized = NativeMethods.IsIconic(w.Handle);
+
         var handles = workspace.Windows
             .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized
                         && NativeMethods.IsWindow(w.Handle))
