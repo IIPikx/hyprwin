@@ -1,0 +1,8 @@
+<Application x:Class="HyprWin.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <!-- Global styles applied from theme config at runtime -->
+    </Application.Resources>
+</Application>

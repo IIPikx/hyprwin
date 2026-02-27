@@ -1,0 +1,41 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "HyprWin.Core/1.0.0": {
+        "dependencies": {
+          "Tomlyn": "0.17.0"
+        },
+        "runtime": {
+          "HyprWin.Core.dll": {}
+        }
+      },
+      "Tomlyn/0.17.0": {
+        "runtime": {
+          "lib/net7.0/Tomlyn.dll": {
+            "assemblyVersion": "0.17.0.0",
+            "fileVersion": "0.17.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "HyprWin.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Tomlyn/0.17.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3BRbxOjZwgdXBGemOvJWuydaG/KsKrnG1Z15Chruvih8Tc8bgtLcmDgo6LPRqiF5LNh6X4Vmos7YuGteBHfePA==",
+      "path": "tomlyn/0.17.0",
+      "hashPath": "tomlyn.0.17.0.nupkg.sha512"
+    }
+  }
+}

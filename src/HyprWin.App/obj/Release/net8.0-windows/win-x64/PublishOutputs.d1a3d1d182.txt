@@ -1,0 +1,3 @@
+e:\takwa\hyprwin\publish\HyprWin.App.pdb
+e:\takwa\hyprwin\publish\HyprWin.Core.pdb
+e:\takwa\hyprwin\publish\HyprWin.App.exe

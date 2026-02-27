@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "o75EamGlDDI=",
+  "success": true,
+  "projectFilePath": "E:\\takwa\\hyprwin\\src\\HyprWin.Core\\HyprWin.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Pikx\\.nuget\\packages\\tomlyn\\0.17.0\\tomlyn.0.17.0.nupkg.sha512"
+  ],
+  "logs": []
+}

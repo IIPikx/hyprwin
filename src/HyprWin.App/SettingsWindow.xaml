@@ -1,0 +1,206 @@
+<Window x:Class="HyprWin.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HyprWin Settings"
+        Width="560" Height="640"
+        WindowStartupLocation="CenterScreen"
+        Background="#1e1e2e"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <!-- Shared text style -->
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#cdd6f4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+        </Style>
+        <Style x:Key="HeaderStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#89b4fa"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Margin" Value="0,12,0,6"/>
+        </Style>
+        <Style x:Key="InputStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#313244"/>
+            <Setter Property="Foreground" Value="#cdd6f4"/>
+            <Setter Property="BorderBrush" Value="#45475a"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+        </Style>
+        <Style x:Key="BtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#89b4fa"/>
+            <Setter Property="Foreground" Value="#1e1e2e"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="4" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="20,8,20,0">
+            <StackPanel>
+                <!-- Layout -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="Layout"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inner Gaps (px)"/>
+                    <TextBox x:Name="GapsInner" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Outer Gaps (px)"/>
+                    <TextBox x:Name="GapsOuter" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Border Size (px)"/>
+                    <TextBox x:Name="BorderSize" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Corner Rounding (px)"/>
+                    <TextBox x:Name="Rounding" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Theme -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="Theme"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Active Border"/>
+                    <TextBox x:Name="BorderActive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inactive Border"/>
+                    <TextBox x:Name="BorderInactive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Background"/>
+                    <TextBox x:Name="TopBarBg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Foreground"/>
+                    <TextBox x:Name="TopBarFg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Accent"/>
+                    <TextBox x:Name="TopBarAccent" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Animations -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="Animations"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Enabled"/>
+                    <CheckBox x:Name="AnimEnabled" Grid.Column="1" VerticalAlignment="Center"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Move Duration (ms)"/>
+                    <TextBox x:Name="AnimMoveDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- General -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="General"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Terminal Command"/>
+                    <TextBox x:Name="TerminalCmd" Grid.Column="1" Style="{StaticResource InputStyle}" Width="200" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Workspace Mode"/>
+                    <ComboBox x:Name="WorkspaceMode" Grid.Column="1" Width="160" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13">
+                        <ComboBoxItem Content="monitor_bound"/>
+                        <ComboBoxItem Content="virtual"/>
+                    </ComboBox>
+                </Grid>
+
+                <!-- Exclusions -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="Exclusions"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Excluded Processes" ToolTip="Comma-separated process names without .exe"/>
+                    <TextBox x:Name="ExcludedProcesses" Grid.Column="1" Style="{StaticResource InputStyle}" HorizontalAlignment="Stretch"
+                             ToolTip="Comma-separated, e.g.: Taskmgr, Discord, vlc"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Bottom Buttons -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,12,20,16">
+            <Button Content="Open TOML" Style="{StaticResource BtnStyle}" Background="#45475a" Foreground="#cdd6f4"
+                    Click="OpenToml_Click" Margin="0,0,8,0"/>
+            <Button Content="Save" Style="{StaticResource BtnStyle}" Click="Save_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

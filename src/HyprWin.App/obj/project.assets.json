@@ -1,0 +1,370 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0-windows7.0": {
+      "H.GeneratedIcons.System.Drawing/2.1.3": {
+        "type": "package",
+        "dependencies": {
+          "System.Drawing.Common": "8.0.7"
+        },
+        "compile": {
+          "lib/net8.0/H.GeneratedIcons.System.Drawing.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/H.GeneratedIcons.System.Drawing.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "H.NotifyIcon/2.1.3": {
+        "type": "package",
+        "dependencies": {
+          "H.GeneratedIcons.System.Drawing": "2.1.3"
+        },
+        "compile": {
+          "lib/net8.0/H.NotifyIcon.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/H.NotifyIcon.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "H.NotifyIcon.Wpf/2.1.3": {
+        "type": "package",
+        "dependencies": {
+          "H.NotifyIcon": "2.1.3"
+        },
+        "compile": {
+          "lib/net8.0-windows7.0/H.NotifyIcon.Wpf.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/H.NotifyIcon.Wpf.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ]
+      },
+      "Microsoft.Win32.SystemEvents/8.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "assetType": "runtime",
+            "rid": "win"
+          }
+        }
+      },
+      "System.Drawing.Common/8.0.7": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "8.0.0"
+        },
+        "compile": {
+          "lib/net8.0/System.Drawing.Common.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/System.Drawing.Common.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
+      "Tomlyn/0.17.0": {
+        "type": "package",
+        "compile": {
+          "lib/net7.0/Tomlyn.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net7.0/Tomlyn.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "HyprWin.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "Tomlyn": "0.17.0"
+        },
+        "compile": {
+          "bin/placeholder/HyprWin.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/HyprWin.Core.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ]
+      }
+    }
+  },
+  "libraries": {
+    "H.GeneratedIcons.System.Drawing/2.1.3": {
+      "sha512": "GH6MR2Qc/yyNaCj1205v2J3jT4siDmg5W+jlbJzxDuMZZtX20pEIb/QBABDS+l9brHlwPs7WygboRNeMii40Qw==",
+      "type": "package",
+      "path": "h.generatedicons.system.drawing/2.1.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "h.generatedicons.system.drawing.2.1.3.nupkg.sha512",
+        "h.generatedicons.system.drawing.nuspec",
+        "lib/net462/H.GeneratedIcons.System.Drawing.dll",
+        "lib/net462/H.GeneratedIcons.System.Drawing.xml",
+        "lib/net6.0/H.GeneratedIcons.System.Drawing.dll",
+        "lib/net6.0/H.GeneratedIcons.System.Drawing.xml",
+        "lib/net8.0/H.GeneratedIcons.System.Drawing.dll",
+        "lib/net8.0/H.GeneratedIcons.System.Drawing.xml",
+        "lib/netstandard2.0/H.GeneratedIcons.System.Drawing.dll",
+        "lib/netstandard2.0/H.GeneratedIcons.System.Drawing.xml",
+        "nuget_icon.png"
+      ]
+    },
+    "H.NotifyIcon/2.1.3": {
+      "sha512": "aiCL1gjfKWh/jRlV4oDOycOqRaRj/C9E5cwHL2KCc+jre5vyUw5lHcHW6t4e/U3ssDmBKJgwhcgAW3JwMUP3ow==",
+      "type": "package",
+      "path": "h.notifyicon/2.1.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "h.notifyicon.2.1.3.nupkg.sha512",
+        "h.notifyicon.nuspec",
+        "lib/net462/H.NotifyIcon.dll",
+        "lib/net462/H.NotifyIcon.xml",
+        "lib/net6.0/H.NotifyIcon.dll",
+        "lib/net6.0/H.NotifyIcon.xml",
+        "lib/net8.0/H.NotifyIcon.dll",
+        "lib/net8.0/H.NotifyIcon.xml",
+        "lib/netstandard2.0/H.NotifyIcon.dll",
+        "lib/netstandard2.0/H.NotifyIcon.xml",
+        "nuget_icon.png"
+      ]
+    },
+    "H.NotifyIcon.Wpf/2.1.3": {
+      "sha512": "sedeaded+0tgQ4WjN3Ldy7OzrrkmOaT9Uh2stRVEKuw10iOYg4w8Qx5bQDueR41nmyenIP/W7hI5cjNfzWu2mw==",
+      "type": "package",
+      "path": "h.notifyicon.wpf/2.1.3",
+      "hasTools": true,
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "h.notifyicon.wpf.2.1.3.nupkg.sha512",
+        "h.notifyicon.wpf.nuspec",
+        "lib/net462/H.NotifyIcon.Wpf.dll",
+        "lib/net462/H.NotifyIcon.Wpf.xml",
+        "lib/net6.0-windows7.0/H.NotifyIcon.Wpf.dll",
+        "lib/net6.0-windows7.0/H.NotifyIcon.Wpf.xml",
+        "lib/net8.0-windows7.0/H.NotifyIcon.Wpf.dll",
+        "lib/net8.0-windows7.0/H.NotifyIcon.Wpf.xml",
+        "nuget_icon.png",
+        "tools/VisualStudioToolsManifest.xml"
+      ]
+    },
+    "Microsoft.Win32.SystemEvents/8.0.0": {
+      "sha512": "9opKRyOKMCi2xJ7Bj7kxtZ1r9vbzosMvRrdEhVhDz8j8MoBGgB+WmC94yH839NPH+BclAjtQ/pyagvi/8gDLkw==",
+      "type": "package",
+      "path": "microsoft.win32.systemevents/8.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/Microsoft.Win32.SystemEvents.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/Microsoft.Win32.SystemEvents.targets",
+        "lib/net462/Microsoft.Win32.SystemEvents.dll",
+        "lib/net462/Microsoft.Win32.SystemEvents.xml",
+        "lib/net6.0/Microsoft.Win32.SystemEvents.dll",
+        "lib/net6.0/Microsoft.Win32.SystemEvents.xml",
+        "lib/net7.0/Microsoft.Win32.SystemEvents.dll",
+        "lib/net7.0/Microsoft.Win32.SystemEvents.xml",
+        "lib/net8.0/Microsoft.Win32.SystemEvents.dll",
+        "lib/net8.0/Microsoft.Win32.SystemEvents.xml",
+        "lib/netstandard2.0/Microsoft.Win32.SystemEvents.dll",
+        "lib/netstandard2.0/Microsoft.Win32.SystemEvents.xml",
+        "microsoft.win32.systemevents.8.0.0.nupkg.sha512",
+        "microsoft.win32.systemevents.nuspec",
+        "runtimes/win/lib/net6.0/Microsoft.Win32.SystemEvents.dll",
+        "runtimes/win/lib/net6.0/Microsoft.Win32.SystemEvents.xml",
+        "runtimes/win/lib/net7.0/Microsoft.Win32.SystemEvents.dll",
+        "runtimes/win/lib/net7.0/Microsoft.Win32.SystemEvents.xml",
+        "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll",
+        "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.xml",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Drawing.Common/8.0.7": {
+      "sha512": "DoeBae0gZvxs3mtfoub6F1k28fSkFPzmhFuvblplKMnLYKmTMVy0j4Yxahh96KM532JzHGDxhJn1VpMKSB1pyg==",
+      "type": "package",
+      "path": "system.drawing.common/8.0.7",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/System.Drawing.Common.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Drawing.Common.targets",
+        "lib/MonoAndroid10/_._",
+        "lib/MonoTouch10/_._",
+        "lib/net462/System.Drawing.Common.dll",
+        "lib/net462/System.Drawing.Common.pdb",
+        "lib/net462/System.Drawing.Common.xml",
+        "lib/net6.0/System.Drawing.Common.dll",
+        "lib/net6.0/System.Drawing.Common.pdb",
+        "lib/net6.0/System.Drawing.Common.xml",
+        "lib/net7.0/System.Drawing.Common.dll",
+        "lib/net7.0/System.Drawing.Common.pdb",
+        "lib/net7.0/System.Drawing.Common.xml",
+        "lib/net8.0/System.Drawing.Common.dll",
+        "lib/net8.0/System.Drawing.Common.pdb",
+        "lib/net8.0/System.Drawing.Common.xml",
+        "lib/netstandard2.0/System.Drawing.Common.dll",
+        "lib/netstandard2.0/System.Drawing.Common.pdb",
+        "lib/netstandard2.0/System.Drawing.Common.xml",
+        "lib/xamarinios10/_._",
+        "lib/xamarinmac20/_._",
+        "lib/xamarintvos10/_._",
+        "lib/xamarinwatchos10/_._",
+        "system.drawing.common.8.0.7.nupkg.sha512",
+        "system.drawing.common.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "Tomlyn/0.17.0": {
+      "sha512": "3BRbxOjZwgdXBGemOvJWuydaG/KsKrnG1Z15Chruvih8Tc8bgtLcmDgo6LPRqiF5LNh6X4Vmos7YuGteBHfePA==",
+      "type": "package",
+      "path": "tomlyn/0.17.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net7.0/Tomlyn.dll",
+        "lib/net7.0/Tomlyn.xml",
+        "lib/netstandard2.0/Tomlyn.dll",
+        "lib/netstandard2.0/Tomlyn.xml",
+        "logo.png",
+        "readme.md",
+        "tomlyn.0.17.0.nupkg.sha512",
+        "tomlyn.nuspec"
+      ]
+    },
+    "HyprWin.Core/1.0.0": {
+      "type": "project",
+      "path": "../HyprWin.Core/HyprWin.Core.csproj",
+      "msbuildProject": "../HyprWin.Core/HyprWin.Core.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0-windows7.0": [
+      "H.NotifyIcon.Wpf >= 2.1.3",
+      "HyprWin.Core >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\Pikx\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "E:\\takwa\\hyprwin\\src\\HyprWin.App\\HyprWin.App.csproj",
+      "projectName": "HyprWin.App",
+      "projectPath": "E:\\takwa\\hyprwin\\src\\HyprWin.App\\HyprWin.App.csproj",
+      "packagesPath": "C:\\Users\\Pikx\\.nuget\\packages\\",
+      "outputPath": "E:\\takwa\\hyprwin\\src\\HyprWin.App\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\Pikx\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0-windows"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "projectReferences": {
+            "E:\\takwa\\hyprwin\\src\\HyprWin.Core\\HyprWin.Core.csproj": {
+              "projectPath": "E:\\takwa\\hyprwin\\src\\HyprWin.Core\\HyprWin.Core.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0-windows7.0": {
+        "targetAlias": "net8.0-windows",
+        "dependencies": {
+          "H.NotifyIcon.Wpf": {
+            "target": "Package",
+            "version": "[2.1.3, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          },
+          "Microsoft.WindowsDesktop.App.WPF": {
+            "privateAssets": "none"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+C:\Users\Lucas Hilka\Downloads\hyprwin\publish\HyprWin.App.pdb
+C:\Users\Lucas Hilka\Downloads\hyprwin\publish\HyprWin.Core.pdb
+C:\Users\Lucas Hilka\Downloads\hyprwin\publish\HyprWin.App.exe

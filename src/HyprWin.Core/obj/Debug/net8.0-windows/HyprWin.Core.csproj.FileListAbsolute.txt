@@ -1,0 +1,12 @@
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.csproj.AssemblyReference.cache
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.AssemblyInfoInputs.cache
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.AssemblyInfo.cs
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.csproj.CoreCompileInputs.cache
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\bin\Debug\net8.0-windows\HyprWin.Core.deps.json
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\bin\Debug\net8.0-windows\HyprWin.Core.dll
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\bin\Debug\net8.0-windows\HyprWin.Core.pdb
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.dll
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\refint\HyprWin.Core.dll
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\HyprWin.Core.pdb
+C:\Users\Lucas Hilka\Downloads\hyprwin\src\HyprWin.Core\obj\Debug\net8.0-windows\ref\HyprWin.Core.dll

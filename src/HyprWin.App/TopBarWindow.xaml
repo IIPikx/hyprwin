@@ -1,0 +1,106 @@
+<Window x:Class="HyprWin.App.TopBarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Title="HyprWinTopBar">
+    <Border x:Name="BarBorder" CornerRadius="0">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            
+            <!-- Left: Workspace Indicators -->
+            <StackPanel Grid.Column="0" 
+                        Orientation="Horizontal" 
+                        VerticalAlignment="Center"
+                        Margin="12,0,0,0">
+                <ItemsControl x:Name="WorkspaceIndicators">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding Indicator}"
+                                    Tag="{Binding Index}"
+                                    Click="WorkspaceButton_Click"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    Foreground="{Binding Foreground}"
+                                    FontSize="{Binding FontSize}"
+                                    FontFamily="{Binding FontFamily}"
+                                    Padding="6,2"
+                                    Margin="2,0"
+                                    Cursor="Hand">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                Padding="{TemplateBinding Padding}"
+                                                CornerRadius="4">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+            
+            <!-- Center: Clock -->
+            <StackPanel Grid.Column="1" 
+                        Orientation="Horizontal" 
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <TextBlock x:Name="ClockText"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center" />
+            </StackPanel>
+            
+            <!-- Right: System Modules -->
+            <StackPanel Grid.Column="2" 
+                        Orientation="Horizontal" 
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right"
+                        Margin="0,0,12,0">
+                <TextBlock x:Name="CpuText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+                <TextBlock x:Name="MemoryText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+                <TextBlock x:Name="VolumeText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+                <Button x:Name="SettingsButton"
+                        Content="⚙"
+                        Click="SettingsButton_Click"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        FontSize="15"
+                        Padding="6,2"
+                        Margin="4,0,0,0"
+                        Cursor="Hand"
+                        ToolTip="Settings">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

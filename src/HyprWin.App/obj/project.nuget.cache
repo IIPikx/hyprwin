@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "dgSpecHash": "bvXOOtcAPD8=",
+  "success": true,
+  "projectFilePath": "E:\\takwa\\hyprwin\\src\\HyprWin.App\\HyprWin.App.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Pikx\\.nuget\\packages\\h.generatedicons.system.drawing\\2.1.3\\h.generatedicons.system.drawing.2.1.3.nupkg.sha512",
+    "C:\\Users\\Pikx\\.nuget\\packages\\h.notifyicon\\2.1.3\\h.notifyicon.2.1.3.nupkg.sha512",
+    "C:\\Users\\Pikx\\.nuget\\packages\\h.notifyicon.wpf\\2.1.3\\h.notifyicon.wpf.2.1.3.nupkg.sha512",
+    "C:\\Users\\Pikx\\.nuget\\packages\\microsoft.win32.systemevents\\8.0.0\\microsoft.win32.systemevents.8.0.0.nupkg.sha512",
+    "C:\\Users\\Pikx\\.nuget\\packages\\system.drawing.common\\8.0.7\\system.drawing.common.8.0.7.nupkg.sha512",
+    "C:\\Users\\Pikx\\.nuget\\packages\\tomlyn\\0.17.0\\tomlyn.0.17.0.nupkg.sha512"
+  ],
+  "logs": []
+}
