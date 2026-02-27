@@ -55,14 +55,17 @@
                 </ItemsControl>
             </StackPanel>
             
-            <!-- Center: Clock -->
+            <!-- Center: Clock (clickable → calendar popup) -->
             <StackPanel Grid.Column="1" 
                         Orientation="Horizontal" 
                         VerticalAlignment="Center"
                         HorizontalAlignment="Center">
                 <TextBlock x:Name="ClockText"
                            VerticalAlignment="Center"
-                           TextAlignment="Center" />
+                           TextAlignment="Center"
+                           Cursor="Hand"
+                           ToolTip="Kalender öffnen"
+                           MouseLeftButtonDown="ClockText_Click" />
             </StackPanel>
             
             <!-- Right: System Modules -->

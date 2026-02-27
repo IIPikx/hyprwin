@@ -132,6 +132,9 @@ public partial class TopBarWindow : Window
 
     // ──────────────── Timers ────────────────
 
+    private DispatcherTimer? _fullscreenTimer;
+    private bool _barHiddenByFullscreen;
+
     private void SetupTimers()
     {
         // Clock update — every second
@@ -142,7 +145,60 @@ public partial class TopBarWindow : Window
         _clockTimer.Tick += (_, _) => UpdateClock();
         _clockTimer.Start();
 
+        // Fullscreen detection — every 750 ms
+        _fullscreenTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(750)
+        };
+        _fullscreenTimer.Tick += (_, _) => CheckFullscreen();
+        _fullscreenTimer.Start();
+
         // System metrics are driven by SystemInfoService.MetricsUpdated events.
+    }
+
+    // ──────────────── Fullscreen detection ────────────────
+
+    private void CheckFullscreen()
+    {
+        var fg = NativeMethods.GetForegroundWindow();
+        if (fg == IntPtr.Zero) { RestoreBarIfNeeded(); return; }
+
+        // Ignore our own window handles
+        var ownHwnd = new WindowInteropHelper(this).Handle;
+        if (fg == ownHwnd) return;
+
+        // Compare foreground window rect (physical pixels) against this monitor's full bounds
+        if (!NativeMethods.GetWindowRect(fg, out var r)) { RestoreBarIfNeeded(); return; }
+
+        var b = _monitor.Bounds;
+        bool coversMonitor = r.Left <= b.Left && r.Top <= b.Top
+                          && r.Right >= b.Right && r.Bottom >= b.Bottom;
+
+        // A window that merely fills rcWork (maximized) is NOT fullscreen — it must cover
+        // the very top edge where the top bar lives.
+        if (coversMonitor && r.Top <= b.Top)
+        {
+            if (!_barHiddenByFullscreen)
+            {
+                _barHiddenByFullscreen = true;
+                Visibility = Visibility.Hidden;
+            }
+        }
+        else
+        {
+            RestoreBarIfNeeded();
+        }
+    }
+
+    private void RestoreBarIfNeeded()
+    {
+        if (!_barHiddenByFullscreen) return;
+        _barHiddenByFullscreen = false;
+        Visibility = Visibility.Visible;
+        // Re-assert HWND_TOPMOST in case another window took over
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
     }
 
     // ──────────────── Clock ────────────────
@@ -283,6 +339,39 @@ public partial class TopBarWindow : Window
         }
     }
 
+    // ──────────────── Calendar popup ────────────────
+
+    private void ClockText_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        try
+        {
+            // Get DPI scale of this window
+            var source = PresentationSource.FromVisual(this);
+            double dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+
+            // Bottom-center of the ClockText in physical pixels
+            var physPt = ClockText.PointToScreen(
+                new Point(ClockText.ActualWidth / 2, ClockText.ActualHeight));
+
+            // Convert to logical (WPF) pixels
+            const double calWidth = 252;
+            double logicalX = physPt.X / dpiX;
+            double logicalY = physPt.Y / dpiY + 6;
+
+            var cal = new CalendarPopupWindow
+            {
+                Left = logicalX - calWidth / 2,
+                Top  = logicalY
+            };
+            cal.Show();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to open calendar", ex);
+        }
+    }
+
     // ──────────────── Helpers ────────────────
 
     private static SolidColorBrush BrushFromHex(string hex)
@@ -303,6 +392,7 @@ public partial class TopBarWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _clockTimer?.Stop();
+        _fullscreenTimer?.Stop();
         if (_sysInfo != null)
             _sysInfo.MetricsUpdated -= OnMetricsUpdated;
         base.OnClosed(e);

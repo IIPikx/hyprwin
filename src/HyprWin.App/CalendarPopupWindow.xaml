@@ -1,0 +1,97 @@
+<Window x:Class="HyprWin.App.CalendarPopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="Height"
+        Width="252"
+        Deactivated="Window_Deactivated"
+        MouseWheel="Window_MouseWheel"
+        Title="HyprWinCalendar">
+
+    <Border Background="#1e1e2e"
+            CornerRadius="10"
+            BorderBrush="#585b70"
+            BorderThickness="1"
+            Padding="12">
+        <StackPanel>
+
+            <!-- Month/Year navigation header -->
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="PrevMonthBtn" Grid.Column="0"
+                        Content="‹"
+                        Click="PrevMonth_Click"
+                        Background="Transparent" BorderBrush="Transparent"
+                        Foreground="#cdd6f4" FontSize="18" FontWeight="Light"
+                        Padding="8,2" Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#313244"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <TextBlock x:Name="MonthYearLabel" Grid.Column="1"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="#cdd6f4" FontSize="13" FontWeight="SemiBold"
+                           Cursor="Hand"
+                           MouseLeftButtonDown="MonthYearLabel_Click"
+                           ToolTip="Zum aktuellen Monat"/>
+
+                <Button x:Name="NextMonthBtn" Grid.Column="2"
+                        Content="›"
+                        Click="NextMonth_Click"
+                        Background="Transparent" BorderBrush="Transparent"
+                        Foreground="#cdd6f4" FontSize="18" FontWeight="Light"
+                        Padding="8,2" Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#313244"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <!-- Day-of-week headers: Monday first -->
+            <UniformGrid Rows="1" Columns="7" Margin="0,0,0,4">
+                <TextBlock Text="Mo" HorizontalAlignment="Center" Foreground="#7f849c" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="Di" HorizontalAlignment="Center" Foreground="#7f849c" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="Mi" HorizontalAlignment="Center" Foreground="#7f849c" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="Do" HorizontalAlignment="Center" Foreground="#7f849c" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="Fr" HorizontalAlignment="Center" Foreground="#7f849c" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="Sa" HorizontalAlignment="Center" Foreground="#a6e3a1" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+                <TextBlock Text="So" HorizontalAlignment="Center" Foreground="#f38ba8" FontSize="10" FontWeight="SemiBold" Padding="0,2"/>
+            </UniformGrid>
+
+            <!-- Day cells — populated in code-behind -->
+            <UniformGrid x:Name="DaysGrid" Rows="6" Columns="7"/>
+
+        </StackPanel>
+    </Border>
+</Window>
