@@ -14,6 +14,7 @@ public partial class CalendarPopupWindow : Window
 {
     private DateTime _currentMonth;
     private readonly DateTime _today;
+    private bool _closing;
 
     // Catppuccin Mocha palette
     private static readonly SolidColorBrush _fgBrush        = Frozen(0xcd, 0xd6, 0xf4);
@@ -142,7 +143,13 @@ public partial class CalendarPopupWindow : Window
     private void Window_Deactivated(object sender, EventArgs e)
     {
         // Close when the user clicks outside the calendar
-        Close();
+        if (!_closing) { _closing = true; Close(); }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _closing = true;
+        base.OnClosed(e);
     }
 
     // ──────────────── Window chrome via Win32 ────────────────

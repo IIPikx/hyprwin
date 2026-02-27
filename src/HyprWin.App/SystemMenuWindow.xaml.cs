@@ -15,6 +15,7 @@ public partial class SystemMenuWindow : Window
 {
     private readonly SystemInfoService _sysInfo;
     private bool _suppressVolumeChange;
+    private bool _closing;
 
     public SystemMenuWindow(SystemInfoService sysInfo)
     {
@@ -28,7 +29,7 @@ public partial class SystemMenuWindow : Window
         sysInfo.MetricsUpdated += OnMetricsUpdated;
 
         // Auto-close when focus leaves the window
-        Deactivated += (_, _) => Close();
+        Deactivated += (_, _) => { if (!_closing) { _closing = true; Close(); } };
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -145,10 +146,15 @@ public partial class SystemMenuWindow : Window
     private void BtnBluetooth_Click(object sender, RoutedEventArgs e)
         => _ = _sysInfo.ToggleBluetoothAsync();
 
-    private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+    private void BtnClose_Click(object sender, RoutedEventArgs e)
+    {
+        _closing = true;
+        Close();
+    }
 
     protected override void OnClosed(EventArgs e)
     {
+        _closing = true;
         _sysInfo.MetricsUpdated -= OnMetricsUpdated;
         base.OnClosed(e);
     }
