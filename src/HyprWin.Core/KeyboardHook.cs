@@ -270,15 +270,13 @@ public sealed class KeyboardHook : IDisposable
                 }
 
                 // ── On key-up: disarm held-combo guard so the next press can fire again ──
+                // Remove ALL entries for this VK regardless of modifier combination.
+                // If modifiers were released in a different order than the key (e.g. CTRL
+                // released before Arrow after a SUPER+CTRL+Arrow resize), the modifier-aware
+                // removal would miss the stale entry and the combo would stop firing forever.
                 if (isKeyUp && !IsModifierKey(vk))
                 {
-                    var currentMods = GetCurrentModifiers();
-                    _heldCombos.Remove((currentMods, vk));
-                    // Also remove with Super modifier in case SUPER was released before the key
-                    var modsWithSuper = currentMods | KeybindParser.Modifiers.Super;
-                    var modsWithoutSuper = currentMods & ~KeybindParser.Modifiers.Super;
-                    _heldCombos.Remove((modsWithSuper, vk));
-                    _heldCombos.Remove((modsWithoutSuper, vk));
+                    _heldCombos.RemoveWhere(k => k.Item2 == vk);
                 }
             }
             catch (Exception ex)
