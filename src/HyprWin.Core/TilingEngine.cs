@@ -248,12 +248,16 @@ public sealed class TilingEngine
         // If any leaf references a window that should no longer be tiled
         // (gone, minimized, fullscreen, floating), rebuild the tree first so
         // we never leave a blank area where a stale leaf used to be.
+        // Use ONLY the cached IsMinimized flag (set by MinimizeStart hook) and live
+        // IsIconic() for windows that weren't caught by the hook. Never mutate the
+        // flag here — that is the job of the MinimizeStart/MinimizeEnd hooks.
         bool needRebuild = false;
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
             var w = workspace.Windows.FirstOrDefault(x => x.Handle == leaf.WindowHandle);
-            if (w == null || w.IsFloating || w.IsFullscreen || w.IsMinimized
+            if (w == null || w.IsFloating || w.IsFullscreen
                 || !NativeMethods.IsWindow(w.Handle)
+                || w.IsMinimized
                 || NativeMethods.IsIconic(w.Handle))
             {
                 needRebuild = true;
@@ -285,8 +289,14 @@ public sealed class TilingEngine
             var window = workspace.Windows.FirstOrDefault(w => w.Handle == leaf.WindowHandle);
             if (window == null || window.IsFloating || window.IsFullscreen) continue;
 
-            // Refresh minimized state — the cached flag may be stale
-            window.IsMinimized = NativeMethods.IsIconic(window.Handle);
+            // Skip truly-minimized windows — use cached flag only.
+            // Do NOT call IsIconic() here and do NOT mutate window.IsMinimized.
+            // Some apps (Electron/Chrome/VSCode) briefly report IsIconic=true during
+            // a programmatic SetWindowPos move. Mutating the flag here would permanently
+            // mark the window as minimized (RebuildTree's only-promote rule), causing it
+            // to disappear from tiling until a MinimizeEnd event fires — which never
+            // happens for a window that was never truly minimized.
+            // IsMinimized is managed exclusively by the MinimizeStart/MinimizeEnd hooks.
             if (window.IsMinimized) continue;
 
             var targetRect = leaf.ComputedRect;
