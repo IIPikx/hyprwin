@@ -418,40 +418,61 @@ public sealed class TilingEngine
         var leaf = workspace.LayoutRoot.FindLeaf(hwnd);
         if (leaf == null) return false;
 
-        bool isHorizontal  = dx != 0;
-        double dirSign     = dx != 0 ? dx : dy; // +1 or -1
+        bool isHorizontal = dx != 0;
+        int  dirSign      = dx != 0 ? dx : dy; // +1 or -1
+
+        // Walk up the tree looking for a split that has a boundary the window can push in
+        // the requested direction.
+        //
+        //  RIGHT (+1): grow right edge  → Horizontal split where window is the FIRST  (left)  child → increase ratio
+        //  LEFT  (-1): grow left  edge  → Horizontal split where window is the SECOND (right) child → decrease ratio
+        //  DOWN  (+1): grow bottom edge → Vertical   split where window is the FIRST  (top)   child → increase ratio
+        //  UP    (-1): grow top   edge  → Vertical   split where window is the SECOND (bottom)child → decrease ratio
+        //
+        // "window is FIRST"  means the moving edge is between current and parent.Second → increase ratio grows window.
+        // "window is SECOND" means the moving edge is between parent.First and current  → decrease ratio grows window.
+        //
+        // If the nearest ancestor split in the axis is on the wrong side (window is at the screen
+        // edge in that direction), keep walking up — maybe an outer split can be used on that side.
+        // This lets e.g. a nested right-edge window grow by adjusting its grandparent split.
 
         var current = leaf;
         while (current.Parent != null)
         {
             var parent = current.Parent;
-
             if (parent.First == null || parent.Second == null) { current = parent; continue; }
 
-            bool splitMatchesAxis = isHorizontal
+            bool axisMatches = isHorizontal
                 ? parent.Direction == BspNode.SplitDirection.Horizontal
                 : parent.Direction == BspNode.SplitDirection.Vertical;
 
-            if (splitMatchesAxis)
+            if (axisMatches)
             {
-                // Bidirectional semantics:
-                //   delta = dirSign * step moves the split line in the pressed direction.
-                //   • FIRST child  + RIGHT → ratio grows   (window grows right)
-                //   • FIRST child  + LEFT  → ratio shrinks (window shrinks from right) ← was broken
-                //   • SECOND child + LEFT  → ratio shrinks (window grows left)
-                //   • SECOND child + RIGHT → ratio grows   (window shrinks from left)
-                double delta    = dirSign * step;
-                double newRatio = Math.Clamp(parent.Ratio + delta, 0.10, 0.90);
-                if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false;
+                bool currentIsFirst  = parent.First  == current;
+                bool currentIsSecond = parent.Second == current;
 
-                parent.Ratio = newRatio;
-                return true;
+                // Check if this split's boundary is the one we want to move:
+                //   dirSign > 0 (RIGHT/DOWN)  → need window on the FIRST side  (increase ratio → grow)
+                //   dirSign < 0 (LEFT/UP)     → need window on the SECOND side (decrease ratio → grow)
+                bool canUse = dirSign > 0 ? currentIsFirst : currentIsSecond;
+
+                if (canUse)
+                {
+                    // +1 → increase ratio, -1 → decrease ratio — always grows the window
+                    double delta    = dirSign * step;
+                    double newRatio = Math.Clamp(parent.Ratio + delta, 0.05, 0.95);
+                    if (Math.Abs(newRatio - parent.Ratio) < 0.001) return false; // already at monitor edge
+
+                    parent.Ratio = newRatio;
+                    return true;
+                }
+                // Wrong side — keep walking up; an outer split may have a usable boundary
             }
 
             current = parent;
         }
 
-        return false; // No adjustable split found on this axis
+        return false; // Window is at the screen edge in this direction
     }
 
     /// <summary>
