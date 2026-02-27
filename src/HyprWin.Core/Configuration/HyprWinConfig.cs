@@ -48,6 +48,7 @@ public sealed class KeybindsConfig
     public string MoveToWs3 { get; init; } = "SUPER+SHIFT+3";
     public string LaunchTerminal { get; init; } = "SUPER+RETURN";
     public string LaunchExplorer { get; init; } = "SUPER+E";
+    public string Screenshot     { get; init; } = "SUPER+SHIFT+S";
     public string ResizeLeft { get; init; } = "SUPER+CTRL+LEFT";
     public string ResizeRight { get; init; } = "SUPER+CTRL+RIGHT";
     public string ResizeUp { get; init; } = "SUPER+CTRL+UP";

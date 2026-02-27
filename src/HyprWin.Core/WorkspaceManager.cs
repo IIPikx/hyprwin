@@ -214,6 +214,23 @@ public sealed class WorkspaceManager
     }
 
     /// <summary>
+    /// Returns the workspace (on any monitor) that currently contains <paramref name="hwnd"/>,
+    /// or <c>null</c> if the window is not tracked.
+    /// </summary>
+    public Workspace? FindWorkspaceForWindow(IntPtr hwnd)
+    {
+        foreach (var (_, workspaces) in _monitorWorkspaces)
+        {
+            foreach (var ws in workspaces)
+            {
+                if (ws.Windows.Any(w => w.Handle == hwnd))
+                    return ws;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Move a window to a different workspace.
     /// </summary>
     public void MoveWindowToWorkspace(IntPtr hwnd, int targetWorkspaceIndex)

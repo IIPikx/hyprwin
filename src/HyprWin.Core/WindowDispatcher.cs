@@ -54,14 +54,23 @@ public sealed class WindowDispatcher
 
             // Collect visible, non-minimized windows from ALL active workspaces across every monitor.
             // Filter out off-screen windows (workspace-switch stash at -32000,-32000).
+            // Refresh IsMinimized live — the cached flag can be stale if the window was
+            // restored without HyprWin receiving an event (e.g. clicking taskbar button).
             var candidates = _monitorManager.Monitors
                 .SelectMany(mon =>
                     _workspaceManager.GetActiveWorkspace(mon.Index)?.Windows
                     ?? Enumerable.Empty<ManagedWindow>())
-                .Where(w => w.Handle != fgHwnd
-                    && !w.IsMinimized
-                    && NativeMethods.IsWindow(w.Handle)
-                    && NativeMethods.IsWindowVisible(w.Handle))
+                .Where(w =>
+                {
+                    if (w.Handle == fgHwnd) return false;
+                    if (!NativeMethods.IsWindow(w.Handle)) return false;
+                    if (!NativeMethods.IsWindowVisible(w.Handle)) return false;
+                    w.IsMinimized = NativeMethods.IsIconic(w.Handle); // live refresh
+                    if (w.IsMinimized) return false;
+                    w.RefreshBounds();
+                    if (w.Bounds.Left < -5000 || w.Bounds.Top < -5000) return false; // stashed
+                    return true;
+                })
                 .ToList();
 
             Logger.Instance.Debug($"FocusInDirection({dx},{dy}): {candidates.Count} candidates across all monitors");
@@ -200,7 +209,12 @@ public sealed class WindowDispatcher
             double         bestScore = double.MaxValue;
 
             var localCandidates = ws.Windows
-                .Where(w => w.Handle != fgHwnd && !w.IsMinimized && !w.IsFloating)
+                .Where(w =>
+                {
+                    if (w.Handle == fgHwnd || w.IsFloating) return false;
+                    w.IsMinimized = NativeMethods.IsIconic(w.Handle); // live refresh
+                    return !w.IsMinimized;
+                })
                 .ToList();
 
             foreach (var candidate in localCandidates)
@@ -548,6 +562,25 @@ public sealed class WindowDispatcher
         catch (Exception ex)
         {
             Logger.Instance.Error("Failed to launch explorer", ex);
+        }
+    }
+
+    public void TakeScreenshot()
+    {
+        try
+        {
+            // Launch the Windows Snipping Tool overlay (SUPER+SHIFT+S equivalent).
+            // ms-screenclip: opens the full snip UI without needing keyboard input.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName        = "ms-screenclip:",
+                UseShellExecute = true,
+            });
+            Logger.Instance.Debug("Launched screenshot tool");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to launch screenshot tool", ex);
         }
     }
 

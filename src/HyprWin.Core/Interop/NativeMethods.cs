@@ -97,6 +97,7 @@ public static class NativeMethods
     public const uint EVENT_OBJECT_HIDE        = 0x8003;
     public const uint EVENT_SYSTEM_FOREGROUND  = 0x0003;
     public const uint EVENT_SYSTEM_MOVESIZEEND = 0x000B;
+    public const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
     public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
     public const uint EVENT_OBJECT_NAMECHANGE  = 0x800C;
     public const uint WINEVENT_OUTOFCONTEXT    = 0x0000;

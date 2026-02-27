@@ -133,6 +133,7 @@ public partial class App : Application
             _windowTracker.WindowAdded += OnWindowAdded;
             _windowTracker.WindowRemoved += OnWindowRemoved;
             _windowTracker.FocusChanged += OnFocusChanged;
+            _windowTracker.WindowRestored += OnWindowRestored;
 
             // 14. Initial tile of all workspaces
             foreach (var mon in _monitorManager.Monitors)
@@ -285,6 +286,7 @@ public partial class App : Application
         _keyboardHook.RegisterKeybind(kb.Fullscreen, _dispatcher.ToggleFullscreen);
         _keyboardHook.RegisterKeybind(kb.LaunchTerminal, _dispatcher.LaunchTerminal);
         _keyboardHook.RegisterKeybind(kb.LaunchExplorer, _dispatcher.LaunchExplorer);
+        _keyboardHook.RegisterKeybind(kb.Screenshot, _dispatcher.TakeScreenshot);
 
         // Resize
         _keyboardHook.RegisterKeybind(kb.ResizeLeft, _dispatcher.ResizeLeft);
@@ -317,6 +319,17 @@ public partial class App : Application
     {
         _workspaceManager.RemoveWindow(hwnd);
         Logger.Instance.Debug($"Window removed from tiling: {hwnd}");
+    }
+
+    private void OnWindowRestored(IntPtr hwnd)
+    {
+        // A window was restored from minimized state. Retile its workspace so the
+        // blank area left by the stale leaf is filled.
+        var ws = _workspaceManager.FindWorkspaceForWindow(hwnd);
+        if (ws == null) return;
+        _tilingEngine.RebuildTree(ws);
+        _tilingEngine.TileWorkspace(ws, animate: false);
+        Logger.Instance.Debug($"Retiled after window restore: {hwnd}");
     }
 
     private void OnFocusChanged(IntPtr hwnd)
