@@ -49,6 +49,7 @@ resize_left    = "SUPER+CTRL+LEFT"
 resize_right   = "SUPER+CTRL+RIGHT"
 resize_up      = "SUPER+CTRL+UP"
 resize_down    = "SUPER+CTRL+DOWN"
+launch_taskmgr = "CTRL+SHIFT+ESCAPE"  # Task Manager (explicit — LL hook blocks native shortcut)
 
 # ─────────────────────── Keys to Suppress ───────────────────────
 # Native Windows shortcuts to intercept and suppress.
@@ -88,7 +89,7 @@ rounding    = 8    # Corner radius in pixels
 # ─────────────────────── Theme ───────────────────────
 # Colors in hex format. Catppuccin Mocha palette by default.
 [theme]
-border_active   = "#cba6f7"    # Mauve — focused window border
+border_active   = "#f77a26"    # Mauve — focused window border
 border_inactive = "#45475a"    # Surface1 — unfocused window border
 background      = "#1e1e2e"    # Base — general background
 top_bar_bg      = "#181825"    # Mantle — top bar background
@@ -129,7 +130,7 @@ inactive_indicator = "○"               # Symbol for inactive workspaces
 # Programs and window classes to exclude from tiling/management.
 # These windows will not be moved, resized, or tiled by HyprWin.
 [exclude]
-process_names = ["Taskmgr", "3CXDesktopApp", "3CXSoftphone", "mstsc", "msrdc"]
+process_names = ["Taskmgr", "3CXDesktopApp", "3CXSoftphone", "mstsc", "msrdc", "3CXWin8Phone", "3CX"]
 # Add process names (without .exe) to exclude from tiling, e.g. "vlc", "obs64", "Discord"
 # mstsc / msrdc = Remote Desktop Connection windows (excluded to prevent layout interference)
 class_names   = []

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -23,8 +24,9 @@ public partial class TopBarWindow : Window
 
     private DispatcherTimer? _clockTimer;
     private SystemInfoService? _sysInfo;
+    private TrayIconService? _trayIconService;
 
-    public TopBarWindow(MonitorInfo monitor, HyprWinConfig config, WorkspaceManager workspaceManager, SystemInfoService sysInfo)
+    public TopBarWindow(MonitorInfo monitor, HyprWinConfig config, WorkspaceManager workspaceManager, SystemInfoService sysInfo, TrayIconService? trayIconService = null)
     {
         InitializeComponent();
 
@@ -32,12 +34,15 @@ public partial class TopBarWindow : Window
         _config = config;
         _workspaceManager = workspaceManager;
         _sysInfo = sysInfo;
+        _trayIconService = trayIconService;
 
         ApplyConfig(config);
         PositionOnMonitor();
 
         SetupTimers();
         _sysInfo.MetricsUpdated += OnMetricsUpdated;
+        if (_trayIconService != null)
+            _trayIconService.IconsUpdated += OnTrayIconsUpdated;
         UpdateWorkspaceIndicators();
     }
 
@@ -92,6 +97,12 @@ public partial class TopBarWindow : Window
 
         // Show/hide modules based on config
         var rightModules = bar.ModulesRight.Modules;
+        bool showTray = rightModules.Contains("tray");
+        TrayIcons.Visibility      = showTray ? Visibility.Visible : Visibility.Collapsed;
+        TraySeparator.Visibility  = showTray ? Visibility.Visible : Visibility.Collapsed;
+        TraySeparator.Foreground  = fgBrush;
+        TraySeparator.FontFamily  = fontFamily;
+        TraySeparator.FontSize    = fontSize;
         CpuText.Visibility     = rightModules.Contains("cpu")      ? Visibility.Visible : Visibility.Collapsed;
         CpuTempText.Visibility = rightModules.Contains("cpu_temp") ? Visibility.Visible : Visibility.Collapsed;
         GpuText.Visibility     = rightModules.Contains("gpu")      ? Visibility.Visible : Visibility.Collapsed;
@@ -100,6 +111,8 @@ public partial class TopBarWindow : Window
         VolumeText.Visibility  = rightModules.Contains("volume")   ? Visibility.Visible : Visibility.Collapsed;
 
         // Buttons
+        TaskManagerButton.Foreground = fgBrush;
+        TaskManagerButton.FontFamily = fontFamily;
         SystemMenuButton.Foreground = fgBrush;
         SystemMenuButton.FontFamily = fontFamily;
         SettingsButton.Foreground = fgBrush;
@@ -291,6 +304,56 @@ public partial class TopBarWindow : Window
         }
     }
 
+    // ──────────────── System Tray Icons ────────────────
+
+    private void OnTrayIconsUpdated(List<TrayIconInfo> icons)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                foreach (var icon in icons)
+                    icon.IconImage ??= TrayIconService.IconToImageSource(icon.IconHandle);
+
+                // Only update if icon set actually changed (avoid flicker)
+                var filtered = icons.Where(i => i.IconImage != null).ToList();
+                TrayIcons.ItemsSource = filtered;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Error("Failed to update tray icons in TopBar", ex);
+            }
+        });
+    }
+
+    private void TrayIcon_LeftClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is TrayIconInfo icon)
+            TrayIconService.SendIconClick(icon, rightClick: false);
+    }
+
+    private void TrayIcon_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is TrayIconInfo icon)
+            TrayIconService.SendIconClick(icon, rightClick: true);
+    }
+
+    private void TaskManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "taskmgr.exe",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to launch Task Manager", ex);
+        }
+    }
+
     private void SystemMenuButton_Click(object sender, RoutedEventArgs e)
     {
         if (_sysInfo == null) return;
@@ -395,6 +458,8 @@ public partial class TopBarWindow : Window
         _fullscreenTimer?.Stop();
         if (_sysInfo != null)
             _sysInfo.MetricsUpdated -= OnMetricsUpdated;
+        if (_trayIconService != null)
+            _trayIconService.IconsUpdated -= OnTrayIconsUpdated;
         base.OnClosed(e);
     }
 }

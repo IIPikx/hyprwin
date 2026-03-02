@@ -66,6 +66,8 @@ public static class NativeMethods
     public const uint SWP_NOSIZE       = 0x0001;
     public const uint SWP_NOMOVE       = 0x0002;
     public const uint SWP_NOSENDCHANGING = 0x0400;
+    public const uint SWP_ASYNCWINDOWPOS = 0x4000;
+    public const uint SWP_NOCOPYBITS   = 0x0100;
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public static readonly IntPtr HWND_NOTOPMOST = new(-2);
     public static readonly IntPtr HWND_TOP = IntPtr.Zero;
@@ -82,6 +84,7 @@ public static class NativeMethods
     public const uint WS_MAXIMIZE     = 0x01000000;
     public const uint WS_MINIMIZE     = 0x20000000;
     public const uint WS_THICKFRAME   = 0x00040000;
+    public const uint WS_DISABLED     = 0x08000000;
 
     // Extended window styles
     public const uint WS_EX_TOOLWINDOW             = 0x00000080;
@@ -89,7 +92,10 @@ public static class NativeMethods
     public const uint WS_EX_APPWINDOW              = 0x00040000;
     public const uint WS_EX_TRANSPARENT            = 0x00000020;
     public const uint WS_EX_LAYERED                = 0x00080000;
-    public const uint WS_EX_NOREDIRECTIONBITMAP    = 0x00200000; // Windows 11 XAML/Composition windows — appear black when force-positioned
+    public const uint WS_EX_NOREDIRECTIONBITMAP    = 0x00200000;
+    public const uint WS_EX_DLGMODALFRAME          = 0x00000001;
+    public const uint WS_EX_WINDOWEDGE             = 0x00000100;
+    public const uint WS_EX_TOPMOST                = 0x00000008; // Windows 11 XAML/Composition windows — appear black when force-positioned
 
     // WinEvent constants
     public const uint EVENT_OBJECT_CREATE      = 0x8000;
@@ -148,6 +154,15 @@ public static class NativeMethods
 
     // Low-level keyboard hook flags
     public const uint LLKHF_INJECTED = 0x00000010;
+
+    // SystemParametersInfo actions
+    public const uint SPI_GETFOREGROUNDLOCKTIMEOUT = 0x2000;
+    public const uint SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001;
+    public const uint SPIF_SENDCHANGE = 0x0002;
+
+    // SendInput constants
+    public const uint INPUT_MOUSE = 0;
+    public const uint MOUSEEVENTF_MOVE = 0x0001;
 
     // ──────────────────────── Structs ────────────────────────
 
@@ -235,6 +250,31 @@ public static class NativeMethods
         public POINT ptMinPosition;
         public POINT ptMaxPosition;
         public RECT rcNormalPosition;
+    }
+
+    // SendInput structs (Komorebi pattern: inject a harmless mouse event to pass foreground lock check)
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT
+    {
+        public uint type;
+        public INPUTUNION U;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct INPUTUNION
+    {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
     }
 
     // ──────────────────────── Functions ────────────────────────
@@ -455,6 +495,25 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+    // SendInput — used for reliable foreground window switching (Komorebi pattern)
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    // SystemParametersInfo — used to set ForegroundLockTimeout to 0
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref uint pvParam, uint fWinIni);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
+
+    // GetWindow — used to get owner window
+    public const uint GW_OWNER = 4;
+
+    /// <summary>Gets the owner window of the specified window.</summary>
+    public static IntPtr GetOwner(IntPtr hWnd) => GetWindow(hWnd, GW_OWNER);
+
     // Register window message
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern uint RegisterWindowMessage(string lpString);
@@ -494,17 +553,42 @@ public static class NativeMethods
     }
 
     /// <summary>
-    /// Forcefully bring a window to the foreground, even if our process is not the foreground process.
+    /// Forcefully bring a window to the foreground using the Komorebi pattern:
+    /// 1. Inject a harmless mouse INPUT to pass the foreground lock check.
+    /// 2. Raise the window to HWND_TOP via SetWindowPos.
+    /// 3. Call SetForegroundWindow to activate it.
+    /// This is much more reliable than AllowSetForegroundWindow alone.
     /// </summary>
     public static void ForceForegroundWindow(IntPtr hWnd)
     {
-        // Grant foreground rights to our process before calling SetForegroundWindow.
-        // The LL keyboard hook executes with foreground input context, so
-        // AllowSetForegroundWindow works here — but the actual UI action runs via
-        // BeginInvoke with a slight delay. We call AllowSetForegroundWindow(ASFW_ANY)
-        // BOTH at hook time (see KeyboardHook.cs) and here right before the call.
         AllowSetForegroundWindow(ASFW_ANY);
+
+        // Inject a no-op mouse event so our thread passes the foreground lock check.
+        // Komorebi does this exact same trick before SetForegroundWindow.
+        var input = new INPUT[1];
+        input[0].type = INPUT_MOUSE;
+        input[0].U.mi = new MOUSEINPUT { dwFlags = 0 }; // no-op mouse event
+        SendInput(1, input, Marshal.SizeOf<INPUT>());
+
+        // Raise window to top of z-order without activating
+        SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+
+        // Now set foreground
         SetForegroundWindow(hWnd);
-        BringWindowToTop(hWnd);
+    }
+
+    /// <summary>
+    /// Disable ForegroundLockTimeout so keyboard-driven focus changes always work.
+    /// Komorebi does this on startup to ensure SetForegroundWindow is never blocked.
+    /// </summary>
+    public static void DisableForegroundLockTimeout()
+    {
+        uint currentValue = 0;
+        SystemParametersInfo(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, ref currentValue, 0);
+        if (currentValue != 0)
+        {
+            SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, IntPtr.Zero, SPIF_SENDCHANGE);
+        }
     }
 }

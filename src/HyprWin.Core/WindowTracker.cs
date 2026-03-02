@@ -317,49 +317,52 @@ public sealed class WindowTracker : IDisposable
 
     /// <summary>
     /// Determine if a window should be managed by HyprWin.
-    /// Filters out tool windows, cloaked windows, invisible windows, excluded programs, etc.
+    /// Uses a filter pipeline inspired by Komorebi's should_manage():
+    ///   1. Basic validity (IsWindow, IsWindowVisible, has title)
+    ///   2. Style checks (child, disabled, tool, noactivate, noredirectionbitmap)
+    ///   3. Cloaked / phantom / offscreen / tiny checks
+    ///   4. System window class blocklist
+    ///   5. Own-process exclusion
+    ///   6. User-configured exclusion lists
     /// </summary>
     public bool IsManageableWindow(IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero) return false;
-        if (!NativeMethods.IsWindowVisible(hwnd)) return false;
         if (!NativeMethods.IsWindow(hwnd)) return false;
+        if (!NativeMethods.IsWindowVisible(hwnd)) return false;
 
         // Skip windows with no title
         int titleLen = NativeMethods.GetWindowTextLength(hwnd);
         if (titleLen == 0) return false;
 
-        // Check window styles
-        int style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_STYLE);
-        int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+        // ── Style checks (Komorebi pattern) ──
+        uint style = (uint)NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_STYLE);
+        uint exStyle = (uint)NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
 
         // Must not be a child window
-        if ((style & (int)NativeMethods.WS_CHILD) != 0) return false;
+        if ((style & NativeMethods.WS_CHILD) != 0) return false;
+
+        // Skip disabled windows (WS_DISABLED) — Komorebi filters these out
+        if ((style & NativeMethods.WS_DISABLED) != 0) return false;
 
         // Skip tool windows (unless they also have APPWINDOW)
-        if ((exStyle & (int)NativeMethods.WS_EX_TOOLWINDOW) != 0 &&
-            (exStyle & (int)NativeMethods.WS_EX_APPWINDOW) == 0)
+        if ((exStyle & NativeMethods.WS_EX_TOOLWINDOW) != 0 &&
+            (exStyle & NativeMethods.WS_EX_APPWINDOW) == 0)
             return false;
 
         // Skip NOACTIVATE windows
-        if ((exStyle & (int)NativeMethods.WS_EX_NOACTIVATE) != 0) return false;
+        if ((exStyle & NativeMethods.WS_EX_NOACTIVATE) != 0) return false;
 
-        // Skip Windows 11 XAML / Composition windows.
-        // WS_EX_NOREDIRECTIONBITMAP means the window renders off the normal
-        // GDI/compositor path. Force-positioning them produces a black empty rectangle.
-        // Every legitimate user-facing window we've seen uses standard GDI rendering.
-        // Exception: windows that additionally have WS_EX_APPWINDOW are real app windows.
-        if ((exStyle & (int)NativeMethods.WS_EX_NOREDIRECTIONBITMAP) != 0 &&
-            (exStyle & (int)NativeMethods.WS_EX_APPWINDOW) == 0)
-            return false;
+        // NOTE: We intentionally do NOT filter WS_EX_NOREDIRECTIONBITMAP here.
+        // Many modern apps (Edge, Chrome, VS Code, Electron apps) use DirectComposition
+        // rendering and set this flag on their main window. Filtering by this style
+        // would exclude legitimate application windows. The IsSystemWindow() class-name
+        // check below already covers actual XAML/Composition host windows.
 
         // Skip cloaked windows (UWP/XAML Islands phantom windows)
         if (NativeMethods.IsWindowCloaked(hwnd)) return false;
 
-        // Skip windows with no meaningful initial size (tiny/offscreen utility windows).
-        // Check the real window bounds BEFORE any tiling — if the window starts at
-        // -32000,-32000 (minimized stash) or is smaller than 50×50, it's not a real
-        // manageable app window.
+        // Skip windows with no meaningful size (tiny/offscreen utility windows).
         if (NativeMethods.GetWindowRect(hwnd, out var initRect))
         {
             if (initRect.Left <= -10000 || initRect.Top <= -10000) return false;
@@ -407,7 +410,18 @@ public sealed class WindowTracker : IDisposable
             // Input Method Editor phantom windows
             "MSCTFIME UI"                              => true,
             "Default IME"                              => true,
-            _ => false,
+            "IME"                                      => true,
+            // Komorebi's permaignore classes
+            "ForegroundStaging"                        => true,
+            "SysShadow"                                => true,
+            "XamlExplorerHostIslandWindow"             => true,
+            "EdgeUiInputTopWndClass"                   => true,
+            "MultitaskingViewFrame"                    => true,
+            "Xaml_WindowedPopupClass"                  => true,
+            // Windows Search / Cortana
+            "Windows.UI.Core.CoreComponentInputSource" => true,            // Additional XAML / Composition host windows (WS_EX_NOREDIRECTIONBITMAP)
+            "Microsoft.UI.Content.DesktopChildSiteBridge" => true,
+            "DRAG_BAR_WINDOW_CLASS"                    => true,            _ => false,
         };
     }
 
@@ -419,8 +433,11 @@ public sealed class WindowTracker : IDisposable
         if (idObject != NativeMethods.OBJID_WINDOW || idChild != NativeMethods.CHILDID_SELF)
             return;
 
-        // Small delay to let the window fully initialize
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        // Delay window management slightly. Many applications (Electron, UWP, etc.)
+        // create intermediate windows that aren't ready to be tiled yet.
+        // Komorebi calls this "slow application compensation".
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background, () =>
         {
             try
             {
@@ -485,6 +502,40 @@ public sealed class WindowTracker : IDisposable
         _activeWindowHandle = hwnd;
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
+            // Late discovery: if a window was missed during creation (e.g. because
+            // it was briefly cloaked or had incomplete styles), pick it up now
+            // when it gains foreground focus.
+            bool alreadyTracked;
+            lock (_lock)
+                alreadyTracked = _windows.ContainsKey(hwnd);
+
+            if (!alreadyTracked && IsManageableWindow(hwnd))
+            {
+                NativeMethods.GetWindowRect(hwnd, out var rect);
+                var placement = new NativeMethods.WINDOWPLACEMENT
+                {
+                    length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.WINDOWPLACEMENT>()
+                };
+                NativeMethods.GetWindowPlacement(hwnd, ref placement);
+
+                var mw = new ManagedWindow
+                {
+                    Handle = hwnd,
+                    Title = NativeMethods.GetWindowTitle(hwnd),
+                    ClassName = NativeMethods.GetWindowClassName(hwnd),
+                    ProcessName = GetProcessNameForWindow(hwnd),
+                    Bounds = rect,
+                    OriginalBounds = rect,
+                    OriginalPlacement = placement,
+                };
+
+                lock (_lock)
+                    _windows[hwnd] = mw;
+
+                Logger.Instance.Debug($"Late-discovered window on focus: {mw}");
+                WindowAdded?.Invoke(mw);
+            }
+
             FocusChanged?.Invoke(hwnd);
         });
     }

@@ -74,6 +74,35 @@
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right"
                         Margin="0,0,12,0">
+                <!-- System Tray Icons -->
+                <ItemsControl x:Name="TrayIcons" VerticalAlignment="Center" Margin="0,0,4,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="Transparent"
+                                    Cursor="Hand"
+                                    Padding="2"
+                                    Margin="1,0"
+                                    ToolTip="{Binding Tooltip}"
+                                    Tag="{Binding}"
+                                    MouseLeftButtonUp="TrayIcon_LeftClick"
+                                    MouseRightButtonUp="TrayIcon_RightClick">
+                                <Image Source="{Binding IconImage}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="TraySeparator"
+                           Text="|"
+                           VerticalAlignment="Center"
+                           Margin="4,0"
+                           Opacity="0.4" />
                 <TextBlock x:Name="CpuText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
@@ -92,6 +121,27 @@
                 <TextBlock x:Name="VolumeText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
+                <!-- Task Manager Button -->
+                <Button x:Name="TaskManagerButton"
+                        Content="📊"
+                        Click="TaskManagerButton_Click"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        FontSize="13"
+                        Padding="6,2"
+                        Margin="4,0,0,0"
+                        Cursor="Hand"
+                        ToolTip="Task Manager">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
                 <!-- System Menu Button (macOS Control Center style) -->
                 <Button x:Name="SystemMenuButton"
                         Content="⌃"

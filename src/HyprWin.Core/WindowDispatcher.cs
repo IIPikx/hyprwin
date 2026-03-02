@@ -40,7 +40,8 @@ public sealed class WindowDispatcher
 
     /// <summary>
     /// Move focus to the nearest window in the given direction — Hyprland-style edge-biased scoring.
-    /// Searches across ALL monitors' active workspaces. No cycling — stays put when edge is reached.
+    /// Uses DWM extended frame bounds (visual rect without shadow) for accurate hit testing,
+    /// same approach as Komorebi's window_rect().
     /// </summary>
     private void FocusInDirection(int dx, int dy)
     {
@@ -49,13 +50,9 @@ public sealed class WindowDispatcher
             var fgHwnd = NativeMethods.GetForegroundWindow();
             Logger.Instance.Debug($"FocusInDirection({dx},{dy}) — foreground={fgHwnd}");
 
-            if (!NativeMethods.GetWindowRect(fgHwnd, out var focusedRect) || focusedRect.Width <= 0)
-                return;
+            var focusedRect = GetVisualRect(fgHwnd);
+            if (focusedRect.Width <= 0) return;
 
-            // Collect visible, non-minimized windows from ALL active workspaces across every monitor.
-            // Filter out off-screen windows (workspace-switch stash at -32000,-32000).
-            // Refresh IsMinimized live — the cached flag can be stale if the window was
-            // restored without HyprWin receiving an event (e.g. clicking taskbar button).
             var candidates = _monitorManager.Monitors
                 .SelectMany(mon =>
                     _workspaceManager.GetActiveWorkspace(mon.Index)?.Windows
@@ -65,10 +62,10 @@ public sealed class WindowDispatcher
                     if (w.Handle == fgHwnd) return false;
                     if (!NativeMethods.IsWindow(w.Handle)) return false;
                     if (!NativeMethods.IsWindowVisible(w.Handle)) return false;
-                    w.IsMinimized = NativeMethods.IsIconic(w.Handle); // live refresh
+                    w.IsMinimized = NativeMethods.IsIconic(w.Handle);
                     if (w.IsMinimized) return false;
                     w.RefreshBounds();
-                    if (w.Bounds.Left < -5000 || w.Bounds.Top < -5000) return false; // stashed
+                    if (w.Bounds.Left < -5000 || w.Bounds.Top < -5000) return false;
                     return true;
                 })
                 .ToList();
@@ -81,11 +78,10 @@ public sealed class WindowDispatcher
 
             foreach (var candidate in candidates)
             {
-                candidate.RefreshBounds();
-                var cb = candidate.Bounds;
+                var cb = GetVisualRect(candidate.Handle);
 
-                // Skip stashed off-screen windows
                 if (cb.Left < -5000 || cb.Top < -5000) continue;
+                if (cb.Width <= 0 || cb.Height <= 0) continue;
 
                 // ── Hyprland-style direction check ──────────────────────────────
                 // Use EDGE distances rather than center-to-center.
@@ -198,7 +194,8 @@ public sealed class WindowDispatcher
         try
         {
             var fgHwnd = NativeMethods.GetForegroundWindow();
-            if (!NativeMethods.GetWindowRect(fgHwnd, out var currentRect)) return;
+            var currentRect = GetVisualRect(fgHwnd);
+            if (currentRect.Width <= 0) return;
 
             int monIdx = _workspaceManager.GetFocusedMonitorIndex();
             var ws    = _workspaceManager.GetActiveWorkspace(monIdx);
@@ -219,9 +216,9 @@ public sealed class WindowDispatcher
 
             foreach (var candidate in localCandidates)
             {
-                candidate.RefreshBounds();
-                var cb = candidate.Bounds;
+                var cb = GetVisualRect(candidate.Handle);
                 if (cb.Left < -5000 || cb.Top < -5000) continue;
+                if (cb.Width <= 0 || cb.Height <= 0) continue;
 
                 // Edge-based direction check (same as FocusInDirection)
                 bool inDirection;
@@ -601,7 +598,44 @@ public sealed class WindowDispatcher
         }
     }
 
+    /// <summary>
+    /// Launch Windows Task Manager. Registered as an explicit keybind because
+    /// the low-level keyboard hook can interfere with the native Ctrl+Shift+Esc shortcut.
+    /// </summary>
+    public void LaunchTaskManager()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "taskmgr.exe",
+                UseShellExecute = true,
+            });
+            Logger.Instance.Debug("Launched Task Manager");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to launch Task Manager", ex);
+        }
+    }
+
     // ──────────────── Helpers ────────────────
+
+    /// <summary>
+    /// Get the visual rect of a window (excluding invisible DWM shadow borders).
+    /// Komorebi uses DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) for this,
+    /// falling back to GetWindowRect if DWM fails.
+    /// This gives the actual on-screen painted area, which is critical for
+    /// accurate direction-based focus/swap operations.
+    /// </summary>
+    private static NativeMethods.RECT GetVisualRect(IntPtr hwnd)
+    {
+        var extRect = NativeMethods.GetExtendedFrameBounds(hwnd);
+        if (extRect.Width > 0 && extRect.Height > 0)
+            return extRect;
+        NativeMethods.GetWindowRect(hwnd, out var rect);
+        return rect;
+    }
 
     /// <summary>
     /// Returns the nearest monitor in the given direction relative to <paramref name="currentMonIdx"/>.

@@ -246,12 +246,9 @@ public sealed class TilingEngine
 
         // ── Validate tree consistency ────────────────────────────────────────
         // If any leaf references a window that should no longer be tiled
-        // (gone, minimized, fullscreen, floating), rebuild the tree first so
-        // we never leave a blank area where a stale leaf used to be.
-        // Use ONLY the cached IsMinimized flag (set by MinimizeStart hook) and live
-        // IsIconic() for windows that weren't caught by the hook. Never mutate the
-        // flag here — that is the job of the MinimizeStart/MinimizeEnd hooks.
-        bool needRebuild = false;
+        // (gone, minimized, fullscreen, floating), sync the tree incrementally
+        // (Hyprland dwindle: preserve split ratios/directions).
+        bool needSync = false;
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
             var w = workspace.Windows.FirstOrDefault(x => x.Handle == leaf.WindowHandle);
@@ -260,13 +257,13 @@ public sealed class TilingEngine
                 || w.IsMinimized
                 || NativeMethods.IsIconic(w.Handle))
             {
-                needRebuild = true;
+                needSync = true;
                 break;
             }
         }
-        if (needRebuild)
+        if (needSync)
         {
-            RebuildTree(workspace);
+            SyncTree(workspace);
             if (workspace.LayoutRoot == null) return; // nothing to tile
         }
 
@@ -359,12 +356,18 @@ public sealed class TilingEngine
 
     /// <summary>
     /// Apply a window position directly (no animation).
+    /// Uses SWP_ASYNCWINDOWPOS (Komorebi pattern) to avoid blocking when
+    /// the target window's thread is not responding.
+    /// Uses SWP_FRAMECHANGED so the frame is recalculated after style changes.
     /// </summary>
     public static void ApplyWindowPosition(IntPtr hwnd, NativeMethods.RECT rect)
     {
         NativeMethods.SetWindowPos(hwnd, IntPtr.Zero,
             rect.Left, rect.Top, rect.Width, rect.Height,
-            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
+            | NativeMethods.SWP_SHOWWINDOW | NativeMethods.SWP_ASYNCWINDOWPOS
+            | NativeMethods.SWP_NOCOPYBITS | NativeMethods.SWP_FRAMECHANGED
+            | NativeMethods.SWP_NOSENDCHANGING);
     }
 
     /// <summary>
@@ -479,9 +482,104 @@ public sealed class TilingEngine
     }
 
     /// <summary>
+    /// Sync the BSP tree incrementally with the workspace's current window list.
+    /// This is the Hyprland "dwindle" approach: the tree evolves organically.
+    /// - New windows split the focused leaf (or largest available).
+    /// - Removed windows' siblings absorb the parent space.
+    /// - Split directions and ratios are PRESERVED across changes.
+    /// Unlike RebuildTree, this never creates a fresh balanced tree — it mutates
+    /// the existing one. Use this for all normal operations (window add/remove/
+    /// minimize/restore). RebuildTree remains available for initial startup from
+    /// scratch when there is no existing tree state to preserve.
+    /// </summary>
+    public void SyncTree(Workspace workspace)
+    {
+        // Promote IsMinimized via live IsIconic()  (same rule as RebuildTree:
+        // ONLY promote to true, never reset to false — handled by MinimizeEnd hook).
+        foreach (var w in workspace.Windows)
+            if (NativeMethods.IsIconic(w.Handle))
+                w.IsMinimized = true;
+
+        var validHandles = workspace.Windows
+            .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized
+                        && NativeMethods.IsWindow(w.Handle))
+            .Select(w => w.Handle)
+            .ToList();
+
+        if (validHandles.Count == 0)
+        {
+            workspace.LayoutRoot = null;
+            return;
+        }
+
+        var area = GetMonitorArea(workspace.MonitorIndex);
+        var tilingArea = new NativeMethods.RECT(
+            area.Left + _gapsOuter, area.Top + _gapsOuter,
+            area.Right - _gapsOuter, area.Bottom - _gapsOuter);
+
+        // ── Case 1: No tree yet — build incrementally (dwindle spiral) ──
+        if (workspace.LayoutRoot == null)
+        {
+            workspace.LayoutRoot = BspNode.Leaf(validHandles[0]);
+            CalculateLayout(workspace.LayoutRoot, tilingArea);
+
+            for (int i = 1; i < validHandles.Count; i++)
+            {
+                AddWindow(workspace, validHandles[i]);
+                CalculateLayout(workspace.LayoutRoot, tilingArea);
+            }
+            return;
+        }
+
+        // ── Case 2: Existing tree — remove stale, add new ──
+        var validSet = validHandles.ToHashSet();
+        bool changed = false;
+
+        // Remove leaves that are no longer valid
+        foreach (var leaf in workspace.LayoutRoot.GetLeaves().ToList())
+        {
+            if (!validSet.Contains(leaf.WindowHandle))
+            {
+                RemoveWindow(workspace, leaf.WindowHandle);
+                changed = true;
+                if (workspace.LayoutRoot == null) break;
+            }
+        }
+
+        // If tree was completely emptied, rebuild incrementally
+        if (workspace.LayoutRoot == null)
+        {
+            workspace.LayoutRoot = BspNode.Leaf(validHandles[0]);
+            CalculateLayout(workspace.LayoutRoot, tilingArea);
+            for (int i = 1; i < validHandles.Count; i++)
+            {
+                AddWindow(workspace, validHandles[i]);
+                CalculateLayout(workspace.LayoutRoot, tilingArea);
+            }
+            return;
+        }
+
+        // Add windows that aren't in the tree yet
+        var inTree = workspace.LayoutRoot.GetLeaves().Select(l => l.WindowHandle).ToHashSet();
+        foreach (var h in validHandles)
+        {
+            if (!inTree.Contains(h))
+            {
+                // Pre-compute rects so AddWindow can determine split direction from aspect ratio
+                if (changed || !inTree.Any())
+                    CalculateLayout(workspace.LayoutRoot, tilingArea);
+                AddWindow(workspace, h);
+                changed = true;
+            }
+        }
+    }
+
+    /// <summary>
     /// Build a fresh BSP tree for a workspace from its window list.
     /// Uses a balanced recursive split so that N windows produce a near-grid layout
     /// rather than a degenerate right-leaning chain.
+    /// NOTE: This is only for initial startup. For normal operation, use SyncTree
+    /// which preserves the existing tree structure (Hyprland dwindle behavior).
     /// </summary>
     public void RebuildTree(Workspace workspace)
     {

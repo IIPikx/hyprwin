@@ -29,6 +29,7 @@ public partial class App : Application
     private TaskbarIcon? _trayIcon;
     private readonly List<TopBarWindow> _topBarWindows = new();
     private SystemInfoService _sysInfoService = null!;
+    private TrayIconService _trayIconService = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -40,6 +41,20 @@ public partial class App : Application
             Logger.Initialize();
             Logger.Instance.Info("═══════════════════════════════════════");
             Logger.Instance.Info("HyprWin starting...");
+
+            // 1b. Disable ForegroundLockTimeout (Komorebi pattern).
+            // Windows blocks SetForegroundWindow after a timeout if the calling
+            // process is not the foreground process. Setting this to 0 on startup
+            // ensures keyboard-driven focus changes always work reliably.
+            try
+            {
+                HyprWin.Core.Interop.NativeMethods.DisableForegroundLockTimeout();
+                Logger.Instance.Info("ForegroundLockTimeout disabled for reliable focus switching");
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Warn($"Could not disable ForegroundLockTimeout: {ex.Message}");
+            }
 
             // 1a. Refuse to run inside an RDP / Terminal Services session.
             //     Hooks and tiling would affect the wrong desktop context and
@@ -125,7 +140,10 @@ public partial class App : Application
             // 11. Wire up workspace events
             _workspaceManager.RetileRequested += ws =>
             {
-                _tilingEngine.RebuildTree(ws);
+                // Hyprland dwindle behavior: sync the BSP tree incrementally
+                // instead of rebuilding from scratch. This preserves split ratios
+                // and tree structure across window adds/removes.
+                _tilingEngine.SyncTree(ws);
                 _tilingEngine.TileWorkspace(ws);
             };
 
@@ -136,13 +154,13 @@ public partial class App : Application
             _windowTracker.WindowRestored += OnWindowRestored;
             _windowTracker.WindowMinimized += OnWindowMinimized;
 
-            // 14. Initial tile of all workspaces
+            // 14. Initial tile of all workspaces (use SyncTree for dwindle-style layout)
             foreach (var mon in _monitorManager.Monitors)
             {
                 var ws = _workspaceManager.GetActiveWorkspace(mon.Index);
                 if (ws != null)
                 {
-                    _tilingEngine.RebuildTree(ws);
+                    _tilingEngine.SyncTree(ws);
                     _tilingEngine.TileWorkspace(ws, animate: false);
                 }
             }
@@ -159,6 +177,10 @@ public partial class App : Application
             // 16. Create top bar windows
             if (config.TopBar.Enabled)
             {
+                // 16a. Start system tray icon service (reads notification icons from hidden taskbar)
+                _trayIconService = new TrayIconService();
+                _trayIconService.Start();
+
                 CreateTopBars(config);
             }
 
@@ -199,6 +221,7 @@ public partial class App : Application
             _windowTracker?.RestoreAllWindows();
 
             _sysInfoService?.Dispose();
+            _trayIconService?.Dispose();
             _windowTracker?.Dispose();
             _borderRenderer?.Dispose();
             _animationEngine?.Dispose();
@@ -295,6 +318,9 @@ public partial class App : Application
         _keyboardHook.RegisterRepeatableKeybind(kb.ResizeUp, _dispatcher.ResizeUp);
         _keyboardHook.RegisterRepeatableKeybind(kb.ResizeDown, _dispatcher.ResizeDown);
 
+        // Task Manager — explicit keybind because the LL hook interferes with native Ctrl+Shift+Esc
+        _keyboardHook.RegisterKeybind(kb.LaunchTaskmgr, _dispatcher.LaunchTaskManager);
+
         // Workspaces
         _keyboardHook.RegisterKeybind(kb.Workspace1, () => _dispatcher.SwitchToWorkspace(0));
         _keyboardHook.RegisterKeybind(kb.Workspace2, () => _dispatcher.SwitchToWorkspace(1));
@@ -324,21 +350,22 @@ public partial class App : Application
 
     private void OnWindowMinimized(IntPtr hwnd)
     {
-        // A window was minimized — rebuild + retile so the blank leaf disappears.
+        // A window was minimized — sync tree so the blank leaf disappears
+        // while preserving all other split ratios and directions.
         var ws = _workspaceManager.FindWorkspaceForWindow(hwnd);
         if (ws == null) return;
-        _tilingEngine.RebuildTree(ws);
+        _tilingEngine.SyncTree(ws);
         _tilingEngine.TileWorkspace(ws, animate: false);
         Logger.Instance.Debug($"Retiled after window minimize: {hwnd}");
     }
 
     private void OnWindowRestored(IntPtr hwnd)
     {
-        // A window was restored from minimized state. Retile its workspace so the
-        // blank area left by the stale leaf is filled.
+        // A window was restored from minimized — sync tree so it's re-added
+        // by splitting the focused window (Hyprland dwindle behavior).
         var ws = _workspaceManager.FindWorkspaceForWindow(hwnd);
         if (ws == null) return;
-        _tilingEngine.RebuildTree(ws);
+        _tilingEngine.SyncTree(ws);
         _tilingEngine.TileWorkspace(ws, animate: false);
         Logger.Instance.Debug($"Retiled after window restore: {hwnd}");
     }
@@ -390,13 +417,13 @@ public partial class App : Application
                 foreach (var bar in _topBarWindows)
                     bar.ApplyConfig(config);
 
-                // Retile all active workspaces
+                // Retile all active workspaces (use SyncTree to preserve tree structure)
                 foreach (var mon in _monitorManager.Monitors)
                 {
                     var ws = _workspaceManager.GetActiveWorkspace(mon.Index);
                     if (ws != null)
                     {
-                        _tilingEngine.RebuildTree(ws);
+                        _tilingEngine.SyncTree(ws);
                         _tilingEngine.TileWorkspace(ws, animate: false);
                     }
                 }
@@ -424,7 +451,7 @@ public partial class App : Application
 
         foreach (var mon in _monitorManager.Monitors)
         {
-            var bar = new TopBarWindow(mon, config, _workspaceManager, _sysInfoService);
+            var bar = new TopBarWindow(mon, config, _workspaceManager, _sysInfoService, _trayIconService);
             bar.SetConfigPath(_configManager.ConfigPath);
             _topBarWindows.Add(bar);
             bar.Show();

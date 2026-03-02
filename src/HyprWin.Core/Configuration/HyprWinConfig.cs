@@ -53,6 +53,7 @@ public sealed class KeybindsConfig
     public string ResizeRight { get; init; } = "SUPER+CTRL+RIGHT";
     public string ResizeUp { get; init; } = "SUPER+CTRL+UP";
     public string ResizeDown { get; init; } = "SUPER+CTRL+DOWN";
+    public string LaunchTaskmgr { get; init; } = "CTRL+SHIFT+ESCAPE";
 }
 
 public sealed class WindowsKeysToSuppressConfig
