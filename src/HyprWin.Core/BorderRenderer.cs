@@ -142,11 +142,18 @@ public sealed class BorderRenderer : IDisposable
     /// </summary>
     private void OnFallbackTick(object? sender, EventArgs e)
     {
-        var fgHwnd = NativeMethods.GetForegroundWindow();
-        if (fgHwnd != _trackedHwnd && fgHwnd != _borderHwnd)
+        try
         {
-            _trackedHwnd = fgHwnd;
-            UpdateBorderPositionDirect();
+            var fgHwnd = NativeMethods.GetForegroundWindow();
+            if (fgHwnd != _trackedHwnd && fgHwnd != _borderHwnd)
+            {
+                _trackedHwnd = fgHwnd;
+                UpdateBorderPositionDirect();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Debug($"BorderRenderer.OnFallbackTick error: {ex.Message}");
         }
     }
 

@@ -479,114 +479,160 @@ public sealed class WindowTracker : IDisposable
     private void OnWinEventDestroy(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        if (idObject != NativeMethods.OBJID_WINDOW || idChild != NativeMethods.CHILDID_SELF)
-            return;
-
-        bool wasTracked;
-        lock (_lock)
-            wasTracked = _windows.Remove(hwnd);
-
-        if (wasTracked)
+        try
         {
-            Logger.Instance.Debug($"Window destroyed: {hwnd}");
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            if (idObject != NativeMethods.OBJID_WINDOW || idChild != NativeMethods.CHILDID_SELF)
+                return;
+
+            bool wasTracked;
+            lock (_lock)
+                wasTracked = _windows.Remove(hwnd);
+
+            if (wasTracked)
             {
-                WindowRemoved?.Invoke(hwnd);
-            });
+                Logger.Instance.Debug($"Window destroyed: {hwnd}");
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    try { WindowRemoved?.Invoke(hwnd); }
+                    catch (Exception ex) { Logger.Instance.Error("Error in WindowRemoved handler", ex); }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in OnWinEventDestroy callback", ex);
         }
     }
 
     private void OnWinEventForeground(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        _activeWindowHandle = hwnd;
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        try
         {
-            // Late discovery: if a window was missed during creation (e.g. because
-            // it was briefly cloaked or had incomplete styles), pick it up now
-            // when it gains foreground focus.
-            bool alreadyTracked;
-            lock (_lock)
-                alreadyTracked = _windows.ContainsKey(hwnd);
-
-            if (!alreadyTracked && IsManageableWindow(hwnd))
+            _activeWindowHandle = hwnd;
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                NativeMethods.GetWindowRect(hwnd, out var rect);
-                var placement = new NativeMethods.WINDOWPLACEMENT
+                try
                 {
-                    length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.WINDOWPLACEMENT>()
-                };
-                NativeMethods.GetWindowPlacement(hwnd, ref placement);
+                    // Late discovery: if a window was missed during creation (e.g. because
+                    // it was briefly cloaked or had incomplete styles), pick it up now
+                    // when it gains foreground focus.
+                    bool alreadyTracked;
+                    lock (_lock)
+                        alreadyTracked = _windows.ContainsKey(hwnd);
 
-                var mw = new ManagedWindow
+                    if (!alreadyTracked && IsManageableWindow(hwnd))
+                    {
+                        NativeMethods.GetWindowRect(hwnd, out var rect);
+                        var placement = new NativeMethods.WINDOWPLACEMENT
+                        {
+                            length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.WINDOWPLACEMENT>()
+                        };
+                        NativeMethods.GetWindowPlacement(hwnd, ref placement);
+
+                        var mw = new ManagedWindow
+                        {
+                            Handle = hwnd,
+                            Title = NativeMethods.GetWindowTitle(hwnd),
+                            ClassName = NativeMethods.GetWindowClassName(hwnd),
+                            ProcessName = GetProcessNameForWindow(hwnd),
+                            Bounds = rect,
+                            OriginalBounds = rect,
+                            OriginalPlacement = placement,
+                        };
+
+                        lock (_lock)
+                            _windows[hwnd] = mw;
+
+                        Logger.Instance.Debug($"Late-discovered window on focus: {mw}");
+                        WindowAdded?.Invoke(mw);
+                    }
+
+                    FocusChanged?.Invoke(hwnd);
+                }
+                catch (Exception ex)
                 {
-                    Handle = hwnd,
-                    Title = NativeMethods.GetWindowTitle(hwnd),
-                    ClassName = NativeMethods.GetWindowClassName(hwnd),
-                    ProcessName = GetProcessNameForWindow(hwnd),
-                    Bounds = rect,
-                    OriginalBounds = rect,
-                    OriginalPlacement = placement,
-                };
-
-                lock (_lock)
-                    _windows[hwnd] = mw;
-
-                Logger.Instance.Debug($"Late-discovered window on focus: {mw}");
-                WindowAdded?.Invoke(mw);
-            }
-
-            FocusChanged?.Invoke(hwnd);
-        });
+                    Logger.Instance.Error("Error in OnWinEventForeground dispatcher", ex);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in OnWinEventForeground callback", ex);
+        }
     }
 
     private void OnWinEventMoveSizeEnd(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        lock (_lock)
+        try
         {
-            if (_windows.TryGetValue(hwnd, out var w))
-                w.RefreshBounds();
-        }
+            lock (_lock)
+            {
+                if (_windows.TryGetValue(hwnd, out var w))
+                    w.RefreshBounds();
+            }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                try { WindowMoveSizeEnd?.Invoke(hwnd); }
+                catch (Exception ex) { Logger.Instance.Error("Error in WindowMoveSizeEnd handler", ex); }
+            });
+        }
+        catch (Exception ex)
         {
-            WindowMoveSizeEnd?.Invoke(hwnd);
-        });
+            Logger.Instance.Error("Error in OnWinEventMoveSizeEnd callback", ex);
+        }
     }
 
     private void OnWinEventMinimizeStart(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        bool tracked;
-        lock (_lock)
+        try
         {
-            tracked = _windows.TryGetValue(hwnd, out var w);
-            if (w != null) w.IsMinimized = true;
+            bool tracked;
+            lock (_lock)
+            {
+                tracked = _windows.TryGetValue(hwnd, out var w);
+                if (w != null) w.IsMinimized = true;
+            }
+
+            if (!tracked) return;
+
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                try { WindowMinimized?.Invoke(hwnd); }
+                catch (Exception ex) { Logger.Instance.Error("Error in WindowMinimized handler", ex); }
+            });
         }
-
-        if (!tracked) return;
-
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        catch (Exception ex)
         {
-            WindowMinimized?.Invoke(hwnd);
-        });
+            Logger.Instance.Error("Error in OnWinEventMinimizeStart callback", ex);
+        }
     }
 
     private void OnWinEventMinimizeEnd(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        // Update cached flag immediately
-        lock (_lock)
+        try
         {
-            if (_windows.TryGetValue(hwnd, out var w))
-                w.IsMinimized = false;
-        }
+            // Update cached flag immediately
+            lock (_lock)
+            {
+                if (_windows.TryGetValue(hwnd, out var w))
+                    w.IsMinimized = false;
+            }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                try { WindowRestored?.Invoke(hwnd); }
+                catch (Exception ex) { Logger.Instance.Error("Error in WindowRestored handler", ex); }
+            });
+        }
+        catch (Exception ex)
         {
-            WindowRestored?.Invoke(hwnd);
-        });
+            Logger.Instance.Error("Error in OnWinEventMinimizeEnd callback", ex);
+        }
     }
 
     public void Dispose()

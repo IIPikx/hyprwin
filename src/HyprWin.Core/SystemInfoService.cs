@@ -83,17 +83,28 @@ public sealed class SystemInfoService : IDisposable
             _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
             _cpuCounter.NextValue(); // first call always 0 - discard
         }
-        catch (Exception ex) { Logger.Instance.Warn($"CPU counter unavailable: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Logger.Instance.Warn($"CPU counter unavailable (VM or restricted): {ex.Message}");
+            _cpuCounter = null;
+        }
 
-        _hwMon.Initialize();
+        try
+        {
+            _hwMon.Initialize();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Warn($"HardwareMonitor failed to initialize: {ex.Message}");
+        }
 
         // Poll every 2 s; WinRT queries run async fire-and-forget
         _pollTimer = new System.Threading.Timer(_ => Poll(), null,
             TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
 
-        // Initial async queries
-        _ = RefreshMediaAsync();
-        _ = RefreshBluetoothAsync();
+        // Initial async queries (may fail in VMs without WinRT)
+        try { _ = RefreshMediaAsync(); } catch { }
+        try { _ = RefreshBluetoothAsync(); } catch { }
 
         Logger.Instance.Info("SystemInfoService started");
     }

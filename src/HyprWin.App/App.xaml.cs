@@ -36,6 +36,26 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // ── Global exception handlers ──────────────────────────────────
+        // Catch unhandled exceptions on the Dispatcher thread and background
+        // threads to prevent 0xc000041d (STATUS_FATAL_USER_CALLBACK_EXCEPTION)
+        // crashes, especially in VM environments where hardware APIs may fail.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Logger.Instance.Error("Unhandled dispatcher exception (suppressed)", args.Exception);
+            args.Handled = true; // prevent crash
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+                Logger.Instance.Error($"Unhandled AppDomain exception (IsTerminating={args.IsTerminating})", ex);
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Logger.Instance.Error("Unobserved task exception (suppressed)", args.Exception);
+            args.SetObserved(); // prevent finalizer crash
+        };
+
         try
         {
             // 1. Initialize logger
@@ -91,7 +111,15 @@ public partial class App : Application
 
             // 2b. Start hardware + audio monitoring service
             _sysInfoService = new SystemInfoService();
-            _sysInfoService.Start();
+            try
+            {
+                _sysInfoService.Start();
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Warn($"SystemInfoService failed to start (VM?): {ex.Message}");
+                // App continues — top bar will show 0 values for temps/GPU
+            }
 
             // 3. Initialize animation engine
             _animationEngine = new AnimationEngine();

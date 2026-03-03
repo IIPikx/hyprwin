@@ -340,49 +340,56 @@ public sealed class AnimationEngine : IDisposable
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        lock (_lock)
+        try
         {
-            if (_animations.Count == 0)
+            lock (_lock)
             {
-                StopRendering();
-                return;
+                if (_animations.Count == 0)
+                {
+                    StopRendering();
+                    return;
+                }
+
+                long now = Stopwatch.GetTimestamp();
+                _completedBuffer.Clear();
+
+                for (int i = 0; i < _animations.Count; i++)
+                {
+                    var anim = _animations[i];
+                    double t = anim.GetProgress(now);
+                    double ease = anim.EasingFunction(t);
+
+                    int x = Lerp(anim.From.Left, anim.To.Left, ease);
+                    int y = Lerp(anim.From.Top, anim.To.Top, ease);
+                    int r = Lerp(anim.From.Right, anim.To.Right, ease);
+                    int b = Lerp(anim.From.Bottom, anim.To.Bottom, ease);
+
+                    NativeMethods.SetWindowPos(anim.WindowHandle, IntPtr.Zero,
+                        x, y, r - x, b - y,
+                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
+                        | NativeMethods.SWP_NOCOPYBITS);
+
+                    if (t >= 1.0)
+                        _completedBuffer.Add(anim);
+                }
+
+                for (int i = 0; i < _completedBuffer.Count; i++)
+                {
+                    var done = _completedBuffer[i];
+                    // Snap to final position
+                    NativeMethods.SetWindowPos(done.WindowHandle, IntPtr.Zero,
+                        done.To.Left, done.To.Top, done.To.Width, done.To.Height,
+                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+                    _animations.Remove(done);
+                }
+
+                if (_animations.Count == 0)
+                    StopRendering();
             }
-
-            long now = Stopwatch.GetTimestamp();
-            _completedBuffer.Clear();
-
-            for (int i = 0; i < _animations.Count; i++)
-            {
-                var anim = _animations[i];
-                double t = anim.GetProgress(now);
-                double ease = anim.EasingFunction(t);
-
-                int x = Lerp(anim.From.Left, anim.To.Left, ease);
-                int y = Lerp(anim.From.Top, anim.To.Top, ease);
-                int r = Lerp(anim.From.Right, anim.To.Right, ease);
-                int b = Lerp(anim.From.Bottom, anim.To.Bottom, ease);
-
-                NativeMethods.SetWindowPos(anim.WindowHandle, IntPtr.Zero,
-                    x, y, r - x, b - y,
-                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
-                    | NativeMethods.SWP_NOCOPYBITS);
-
-                if (t >= 1.0)
-                    _completedBuffer.Add(anim);
-            }
-
-            for (int i = 0; i < _completedBuffer.Count; i++)
-            {
-                var done = _completedBuffer[i];
-                // Snap to final position
-                NativeMethods.SetWindowPos(done.WindowHandle, IntPtr.Zero,
-                    done.To.Left, done.To.Top, done.To.Width, done.To.Height,
-                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
-                _animations.Remove(done);
-            }
-
-            if (_animations.Count == 0)
-                StopRendering();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Debug($"AnimationEngine.OnRendering error: {ex.Message}");
         }
     }
 

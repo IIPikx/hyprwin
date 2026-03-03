@@ -34,8 +34,11 @@ public sealed class HardwareMonitor : IDisposable
         }
         catch (Exception ex)
         {
+            // In VMs, driver-level access often fails (no real GPU, no ring-0).
+            // Degrade gracefully — all readings will return 0.
             _initialized = false;
-            Logger.Instance.Warn($"HardwareMonitor unavailable (try running as admin for temps): {ex.Message}");
+            _computer = null; // dispose the half-opened computer
+            Logger.Instance.Warn($"HardwareMonitor unavailable (VM or no admin): {ex.Message}");
         }
     }
 
@@ -52,11 +55,22 @@ public sealed class HardwareMonitor : IDisposable
 
             foreach (var hardware in _computer.Hardware)
             {
-                hardware.Update();
+                try
+                {
+                    hardware.Update();
+                }
+                catch
+                {
+                    // Some hardware sub-drivers may fail in VMs — skip them
+                    continue;
+                }
 
                 // Some CPUs place core sensors in sub-hardware
                 foreach (var sub in hardware.SubHardware)
-                    sub.Update();
+                {
+                    try { sub.Update(); }
+                    catch { continue; }
+                }
 
                 switch (hardware.HardwareType)
                 {
