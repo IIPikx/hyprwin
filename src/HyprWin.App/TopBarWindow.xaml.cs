@@ -46,15 +46,32 @@ public partial class TopBarWindow : Window
         UpdateWorkspaceIndicators();
     }
 
+    // WndProc constants for intercepting minimize / z-order changes
+    private const int WM_WINDOWPOSCHANGING = 0x0046;
+    private const int WM_SYSCOMMAND        = 0x0112;
+    private const int SC_MINIMIZE           = 0xF020;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x, y, cx, cy;
+        public uint flags;
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
 
-        // Make the bar click-through for non-interactive areas
         var hwnd = new WindowInteropHelper(this).Handle;
+
+        // Install WndProc hook to block minimize and z-order demotion
+        var source = HwndSource.FromHwnd(hwnd);
+        source?.AddHook(WndProc);
+
+        // WS_EX_TOOLWINDOW prevents it from appearing in Alt+Tab
         int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-        // Don't set WS_EX_TRANSPARENT — we want clicks on buttons to work
-        // Instead, the WS_EX_TOOLWINDOW prevents it from appearing in Alt+Tab
         NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE,
             exStyle | (int)NativeMethods.WS_EX_TOOLWINDOW);
 
@@ -62,6 +79,57 @@ public partial class TopBarWindow : Window
         NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST,
             0, 0, 0, 0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
+    }
+
+    /// <summary>
+    /// Low-level message hook: prevents "Show Desktop" from minimising or
+    /// pushing the TopBar behind the desktop.
+    /// </summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        switch (msg)
+        {
+            case WM_SYSCOMMAND:
+                // Block SC_MINIMIZE (triggered by Show Desktop)
+                if ((wParam.ToInt32() & 0xFFF0) == SC_MINIMIZE)
+                {
+                    handled = true;
+                    return IntPtr.Zero;
+                }
+                break;
+
+            case WM_WINDOWPOSCHANGING:
+                // Prevent any z-order change that would push us below HWND_TOPMOST
+                var pos = System.Runtime.InteropServices.Marshal.PtrToStructure<WINDOWPOS>(lParam);
+                pos.hwndInsertAfter = NativeMethods.HWND_TOPMOST;
+                System.Runtime.InteropServices.Marshal.StructureToPtr(pos, lParam, false);
+                break;
+        }
+        return IntPtr.Zero;
+    }
+
+    protected override void OnDeactivated(EventArgs e)
+    {
+        base.OnDeactivated(e);
+
+        // When the TopBar loses focus (e.g. desktop click), immediately
+        // re-assert topmost + visible to stay on screen.
+        if (_barHiddenByFullscreen) return;
+
+        Visibility = Visibility.Visible;
+        WindowState = WindowState.Normal;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        // Never allow the TopBar to be minimized
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+        base.OnStateChanged(e);
     }
 
     /// <summary>
