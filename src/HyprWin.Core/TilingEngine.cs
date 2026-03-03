@@ -130,10 +130,17 @@ public sealed class TilingEngine
 
         if (targetLeaf == null)
         {
-            // Pick the leaf with the largest area so new windows get a reasonable slot
-            targetLeaf = workspace.LayoutRoot.GetLeaves()
-                .OrderByDescending(l => (long)l.ComputedRect.Width * l.ComputedRect.Height)
-                .FirstOrDefault();
+            // Pick the leaf with the largest area — avoid LINQ OrderByDescending allocation
+            long bestArea = -1;
+            foreach (var leaf in workspace.LayoutRoot.GetLeaves())
+            {
+                long area = (long)leaf.ComputedRect.Width * leaf.ComputedRect.Height;
+                if (area > bestArea)
+                {
+                    bestArea = area;
+                    targetLeaf = leaf;
+                }
+            }
         }
 
         if (targetLeaf == null)
@@ -248,10 +255,13 @@ public sealed class TilingEngine
         // If any leaf references a window that should no longer be tiled
         // (gone, minimized, fullscreen, floating), sync the tree incrementally
         // (Hyprland dwindle: preserve split ratios/directions).
+        // Build a lookup dictionary once instead of O(N*M) FirstOrDefault per leaf.
+        Dictionary<IntPtr, ManagedWindow>? windowLookup = null;
         bool needSync = false;
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
-            var w = workspace.Windows.FirstOrDefault(x => x.Handle == leaf.WindowHandle);
+            windowLookup ??= BuildWindowLookup(workspace);
+            windowLookup.TryGetValue(leaf.WindowHandle, out var w);
             if (w == null || w.IsFloating || w.IsFullscreen
                 || !NativeMethods.IsWindow(w.Handle)
                 || w.IsMinimized
@@ -280,10 +290,13 @@ public sealed class TilingEngine
         // Calculate layout
         CalculateLayout(workspace.LayoutRoot, tilingArea);
 
+        // Build lookup once for O(1) hit per leaf
+        windowLookup ??= BuildWindowLookup(workspace);
+
         // Apply positions
         foreach (var leaf in workspace.LayoutRoot.GetLeaves())
         {
-            var window = workspace.Windows.FirstOrDefault(w => w.Handle == leaf.WindowHandle);
+            windowLookup.TryGetValue(leaf.WindowHandle, out var window);
             if (window == null || window.IsFloating || window.IsFullscreen) continue;
 
             // Skip truly-minimized windows — use cached flag only.
@@ -482,6 +495,17 @@ public sealed class TilingEngine
     }
 
     /// <summary>
+    /// Build a handle→window dictionary for O(1) lookups during tiling.
+    /// </summary>
+    private static Dictionary<IntPtr, ManagedWindow> BuildWindowLookup(Workspace workspace)
+    {
+        var dict = new Dictionary<IntPtr, ManagedWindow>(workspace.Windows.Count);
+        foreach (var w in workspace.Windows)
+            dict[w.Handle] = w;
+        return dict;
+    }
+
+    /// <summary>
     /// Sync the BSP tree incrementally with the workspace's current window list.
     /// This is the Hyprland "dwindle" approach: the tree evolves organically.
     /// - New windows split the focused leaf (or largest available).
@@ -500,11 +524,14 @@ public sealed class TilingEngine
             if (NativeMethods.IsIconic(w.Handle))
                 w.IsMinimized = true;
 
-        var validHandles = workspace.Windows
-            .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized
-                        && NativeMethods.IsWindow(w.Handle))
-            .Select(w => w.Handle)
-            .ToList();
+        // Collect valid handles without LINQ allocations
+        var validHandles = new List<IntPtr>(workspace.Windows.Count);
+        foreach (var w in workspace.Windows)
+        {
+            if (!w.IsFloating && !w.IsFullscreen && !w.IsMinimized
+                && NativeMethods.IsWindow(w.Handle))
+                validHandles.Add(w.Handle);
+        }
 
         if (validHandles.Count == 0)
         {
@@ -560,15 +587,19 @@ public sealed class TilingEngine
         }
 
         // Add windows that aren't in the tree yet
-        var inTree = workspace.LayoutRoot.GetLeaves().Select(l => l.WindowHandle).ToHashSet();
+        var inTree = new HashSet<IntPtr>();
+        foreach (var leaf in workspace.LayoutRoot.GetLeaves())
+            inTree.Add(leaf.WindowHandle);
+
         foreach (var h in validHandles)
         {
             if (!inTree.Contains(h))
             {
                 // Pre-compute rects so AddWindow can determine split direction from aspect ratio
-                if (changed || !inTree.Any())
+                if (changed || inTree.Count == 0)
                     CalculateLayout(workspace.LayoutRoot, tilingArea);
                 AddWindow(workspace, h);
+                changed = true;
                 changed = true;
             }
         }
@@ -594,11 +625,13 @@ public sealed class TilingEngine
             if (NativeMethods.IsIconic(w.Handle))
                 w.IsMinimized = true;
 
-        var handles = workspace.Windows
-            .Where(w => !w.IsFloating && !w.IsFullscreen && !w.IsMinimized
-                        && NativeMethods.IsWindow(w.Handle))
-            .Select(w => w.Handle)
-            .ToList();
+        var handles = new List<IntPtr>(workspace.Windows.Count);
+        foreach (var w in workspace.Windows)
+        {
+            if (!w.IsFloating && !w.IsFullscreen && !w.IsMinimized
+                && NativeMethods.IsWindow(w.Handle))
+                handles.Add(w.Handle);
+        }
 
         workspace.LayoutRoot = handles.Count == 0
             ? null
@@ -627,8 +660,8 @@ public sealed class TilingEngine
             : BspNode.SplitDirection.Vertical;
 
         int mid = handles.Count / 2;
-        var firstHandles  = handles.Take(mid).ToList();
-        var secondHandles = handles.Skip(mid).ToList();
+        var firstHandles  = handles.GetRange(0, mid);
+        var secondHandles = handles.GetRange(mid, handles.Count - mid);
 
         NativeMethods.RECT firstArea, secondArea;
         if (dir == BspNode.SplitDirection.Horizontal)

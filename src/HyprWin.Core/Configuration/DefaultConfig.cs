@@ -77,7 +77,30 @@ enabled                = true
 window_open_duration_ms  = 200    # Fade/slide-in duration for new windows
 window_close_duration_ms = 150    # Fade-out duration when closing
 window_move_duration_ms  = 120    # Duration for tiling repositions
-easing = "ease_out_cubic"         # Options: linear, ease_in, ease_out, ease_out_cubic, spring
+easing = "ease_out_cubic"         # Options: linear, ease_in, ease_out, ease_out_cubic,
+                                  #          ease_out_quint, ease_out_expo, ease_in_out_cubic,
+                                  #          spring, or any named bezier curve
+window_open_style = "popin"       # Options: slide, popin, fade
+popin_percent     = 80            # Start scale for popin style (0-100)
+
+# ─────────────────────── Custom Bezier Curves ───────────────────────
+# Define named bezier curves for use in [animations] easing.
+# Syntax matches Hyprland: bezier = NAME, X0, Y0, X1, Y1
+# Set easing = "myBezier" in [animations] to use a named curve.
+#
+# [[bezier]]
+# name = "myBezier"
+# x0 = 0.05
+# y0 = 0.9
+# x1 = 0.1
+# y1 = 1.05
+#
+# [[bezier]]
+# name = "overshot"
+# x0 = 0.05
+# y0 = 0.9
+# x1 = 0.1
+# y1 = 1.1
 
 # ─────────────────────── Layout ───────────────────────
 [layout]
@@ -125,6 +148,68 @@ date_format = "ddd dd.MM.yyyy"          # Date format (.NET format string)
 show_count         = 3                  # Number of workspace indicators to show
 active_indicator   = "●"               # Symbol for the active workspace
 inactive_indicator = "○"               # Symbol for inactive workspaces
+
+# ─────────────────────── Custom Launch Shortcuts ───────────────────────
+# Define custom shortcuts to launch any program or executable.
+# Each [[launch]] entry needs a "shortcut" and a "command".
+# Optional: "args" for command-line arguments.
+#
+# Examples:
+# [[launch]]
+# shortcut = "SUPER+B"
+# command  = "firefox.exe"
+#
+# [[launch]]
+# shortcut = "SUPER+N"
+# command  = "notepad.exe"
+#
+# [[launch]]
+# shortcut = "CTRL+ALT+T"
+# command  = "wt.exe"
+# args     = "-p PowerShell"
+#
+# [[launch]]
+# shortcut = "SUPER+SHIFT+C"
+# command  = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+
+# Open default browser with SUPER+B
+[[launch]]
+shortcut = "SUPER+B"
+command  = "explorer.exe"
+args     = "https:"
+
+# ─────────────────────── Window Rules ───────────────────────
+# Hyprland-style window rules. Each [[window_rule]] matches by process name,
+# window class, or title (regex) and applies effects to matching windows.
+# All criteria are AND-combined; omit a criterion to skip it.
+#
+# Available effects:
+#   float       = true/false   — Force window to float (not tiled)
+#   fullscreen  = true/false   — Open window in fullscreen
+#   workspace   = 2            — Move window to workspace N (1-based)
+#   pin         = true/false   — Pin window on all workspaces
+#   center      = true/false   — Center window on screen
+#   no_anim     = true/false   — Skip open animation
+#   opacity     = 0.9          — Window opacity (0.0-1.0)
+#   border_color = "#ff0000"   — Custom border color
+#   border_size  = 3           — Custom border thickness
+#   size        = "800x600"    — Set window size (WxH)
+#   move        = "100,100"    — Set window position (X,Y)
+#
+# Examples:
+# [[window_rule]]
+# match_process = "firefox"
+# opacity       = 0.95
+#
+# [[window_rule]]
+# match_title   = "Picture-in-Picture"
+# float         = true
+# pin           = true
+# size          = "480x270"
+#
+# [[window_rule]]
+# match_process = "Spotify"
+# workspace     = 3
 
 # ─────────────────────── Exclusions ───────────────────────
 # Programs and window classes to exclude from tiling/management.

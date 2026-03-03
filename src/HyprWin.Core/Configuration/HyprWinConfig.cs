@@ -15,6 +15,15 @@ public sealed class HyprWinConfig
     public TopBarConfig TopBar { get; init; } = new();
     public GeneralConfig General { get; init; } = new();
     public ExcludeConfig Exclude { get; init; } = new();
+
+    /// <summary>Custom program launch shortcuts defined via [[launch]] entries.</summary>
+    public List<LaunchEntry> Launch { get; init; } = new();
+
+    /// <summary>Hyprland-style window rules defined via [[window_rule]] entries.</summary>
+    public List<WindowRuleConfig> WindowRules { get; init; } = new();
+
+    /// <summary>Named bezier curves defined via [[bezier]] entries.</summary>
+    public List<BezierConfig> Beziers { get; init; } = new();
 }
 
 public sealed class GeneralConfig
@@ -86,6 +95,10 @@ public sealed class AnimationsConfig
     public int WindowCloseDurationMs { get; init; } = 150;
     public int WindowMoveDurationMs { get; init; } = 120;
     public string Easing { get; init; } = "ease_out_cubic";
+    /// <summary>Animation style for window open. Options: slide, popin, fade.</summary>
+    public string WindowOpenStyle { get; init; } = "popin";
+    /// <summary>Percentage for popin style (start scale). 0-100.</summary>
+    public int PopinPercent { get; init; } = 80;
 }
 
 public sealed class LayoutConfig
@@ -137,6 +150,62 @@ public sealed class WorkspacesWidgetConfig
     public int ShowCount { get; init; } = 3;
     public string ActiveIndicator { get; init; } = "●";
     public string InactiveIndicator { get; init; } = "○";
+}
+
+/// <summary>
+/// A single Hyprland-style window rule entry.
+/// Configured via [[window_rule]] array-of-tables in TOML.
+/// </summary>
+public sealed class WindowRuleConfig
+{
+    /// <summary>Match by process name regex.</summary>
+    public string? MatchProcess { get; init; }
+    /// <summary>Match by window class regex.</summary>
+    public string? MatchClass { get; init; }
+    /// <summary>Match by window title regex.</summary>
+    public string? MatchTitle { get; init; }
+
+    // Effects
+    public bool? Float { get; init; }
+    public bool? Fullscreen { get; init; }
+    public int? Workspace { get; init; }
+    public bool? Pin { get; init; }
+    public bool? Center { get; init; }
+    public bool? NoAnim { get; init; }
+    public double? Opacity { get; init; }
+    public string? BorderColor { get; init; }
+    public int? BorderSize { get; init; }
+    public string? Size { get; init; }
+    public string? Move { get; init; }
+}
+
+/// <summary>
+/// A named bezier curve for animations.
+/// Configured via [[bezier]] in TOML: name, x0, y0, x1, y1
+/// </summary>
+public sealed class BezierConfig
+{
+    public string Name { get; init; } = "";
+    public double X0 { get; init; }
+    public double Y0 { get; init; }
+    public double X1 { get; init; }
+    public double Y1 { get; init; }
+}
+
+/// <summary>
+/// A single custom launch shortcut entry.
+/// Configured via [[launch]] array-of-tables in TOML.
+/// </summary>
+public sealed class LaunchEntry
+{
+    /// <summary>Keyboard shortcut, e.g. "SUPER+B" or "CTRL+ALT+T".</summary>
+    public string Shortcut { get; init; } = "";
+
+    /// <summary>Command / executable to launch, e.g. "notepad.exe" or "C:\\Program Files\\App\\app.exe".</summary>
+    public string Command { get; init; } = "";
+
+    /// <summary>Optional arguments to pass to the command.</summary>
+    public string Args { get; init; } = "";
 }
 
 /// <summary>

@@ -24,6 +24,7 @@ public partial class App : Application
     private AnimationEngine _animationEngine = null!;
     private BorderRenderer _borderRenderer = null!;
     private TaskbarManager _taskbarManager = null!;
+    private WindowRuleEngine _windowRuleEngine = null!;
 
     // ──────────────── UI ────────────────
     private TaskbarIcon? _trayIcon;
@@ -95,6 +96,13 @@ public partial class App : Application
             // 3. Initialize animation engine
             _animationEngine = new AnimationEngine();
             _animationEngine.UpdateFromConfig(config.Animations);
+
+            // 3b. Register named bezier curves from config
+            RegisterBeziers(config);
+
+            // 3c. Initialize window rule engine
+            _windowRuleEngine = new WindowRuleEngine();
+            LoadWindowRules(config);
 
             // 4a. Hide native taskbar NOW — before enumerating monitors,
             //     so that Windows' work-area snapshot already reflects the
@@ -331,6 +339,15 @@ public partial class App : Application
         _keyboardHook.RegisterKeybind(kb.MoveToWs2, () => _dispatcher.MoveToWorkspace(1));
         _keyboardHook.RegisterKeybind(kb.MoveToWs3, () => _dispatcher.MoveToWorkspace(2));
 
+        // Custom launch shortcuts from [[launch]] entries
+        foreach (var entry in config.Launch)
+        {
+            var cmd = entry.Command;
+            var args = entry.Args;
+            _keyboardHook.RegisterKeybind(entry.Shortcut, () => _dispatcher.LaunchProgram(cmd, args));
+            Logger.Instance.Debug($"Registered custom launch: {entry.Shortcut} → {cmd} {args}".TrimEnd());
+        }
+
         Logger.Instance.Info("Keybinds registered");
     }
 
@@ -339,6 +356,15 @@ public partial class App : Application
     private void OnWindowAdded(ManagedWindow window)
     {
         _workspaceManager.AddWindowToActiveWorkspace(window);
+
+        // Apply window rules (Hyprland windowrule)
+        if (_windowRuleEngine.HasRules)
+        {
+            var result = _windowRuleEngine.Evaluate(window);
+            if (result.HasAnyEffect)
+                ApplyWindowRuleResult(window, result);
+        }
+
         Logger.Instance.Debug($"New window tiled: {window}");
     }
 
@@ -393,6 +419,10 @@ public partial class App : Application
 
                 // Update animation engine
                 _animationEngine.UpdateFromConfig(config.Animations);
+
+                // Reload bezier curves and window rules
+                RegisterBeziers(config);
+                LoadWindowRules(config);
 
                 // Update tiling layout
                 _tilingEngine.UpdateLayout(config.Layout.GapsInner, config.Layout.GapsOuter);
@@ -572,5 +602,161 @@ public partial class App : Application
         menu.Items.Add(exitItem);
 
         return menu;
+    }
+
+    // ──────────────── Bezier Curves & Window Rules ────────────────
+
+    /// <summary>
+    /// Register named bezier curves from config into the global Easing registry.
+    /// </summary>
+    private static void RegisterBeziers(HyprWinConfig config)
+    {
+        Easing.ClearBeziers();
+        foreach (var b in config.Beziers)
+        {
+            if (string.IsNullOrWhiteSpace(b.Name)) continue;
+            Easing.RegisterBezier(b.Name, b.X0, b.Y0, b.X1, b.Y1);
+        }
+    }
+
+    /// <summary>
+    /// Convert config window rules into WindowRule objects and load them into the engine.
+    /// </summary>
+    private void LoadWindowRules(HyprWinConfig config)
+    {
+        var rules = new List<WindowRule>();
+        foreach (var rc in config.WindowRules)
+        {
+            try
+            {
+                var rule = new WindowRule
+                {
+                    MatchProcess = ToRegex(rc.MatchProcess),
+                    MatchClass = ToRegex(rc.MatchClass),
+                    MatchTitle = ToRegex(rc.MatchTitle),
+                    Float = rc.Float,
+                    Fullscreen = rc.Fullscreen,
+                    Workspace = rc.Workspace,
+                    Pin = rc.Pin,
+                    Center = rc.Center,
+                    NoAnim = rc.NoAnim,
+                    Opacity = rc.Opacity,
+                    BorderColor = rc.BorderColor,
+                    BorderSize = rc.BorderSize,
+                    Size = ParsePair(rc.Size),
+                    Move = ParsePair(rc.Move),
+                };
+                rules.Add(rule);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Warn($"Invalid window rule: {ex.Message}");
+            }
+        }
+        _windowRuleEngine.SetRules(rules);
+    }
+
+    /// <summary>
+    /// Apply evaluated window rule effects to a managed window.
+    /// </summary>
+    private void ApplyWindowRuleResult(ManagedWindow window, WindowRuleResult result)
+    {
+        try
+        {
+            // Opacity (via WS_EX_LAYERED + SetLayeredWindowAttributes)
+            if (result.Opacity.HasValue)
+            {
+                byte alpha = (byte)Math.Clamp((int)(result.Opacity.Value * 255), 0, 255);
+                int exStyle = HyprWin.Core.Interop.NativeMethods.GetWindowLong(
+                    window.Handle, HyprWin.Core.Interop.NativeMethods.GWL_EXSTYLE);
+                HyprWin.Core.Interop.NativeMethods.SetWindowLong(
+                    window.Handle, HyprWin.Core.Interop.NativeMethods.GWL_EXSTYLE,
+                    exStyle | (int)HyprWin.Core.Interop.NativeMethods.WS_EX_LAYERED);
+                HyprWin.Core.Interop.NativeMethods.SetLayeredWindowAttributes(
+                    window.Handle, 0, alpha, HyprWin.Core.Interop.NativeMethods.LWA_ALPHA);
+                Logger.Instance.Debug($"Window rule: opacity {result.Opacity.Value:F2} applied to {window.ProcessName}");
+            }
+
+            // Size
+            if (result.Size.HasValue)
+            {
+                var (w, h) = result.Size.Value;
+                HyprWin.Core.Interop.NativeMethods.SetWindowPos(
+                    window.Handle, IntPtr.Zero, 0, 0, w, h,
+                    HyprWin.Core.Interop.NativeMethods.SWP_NOMOVE |
+                    HyprWin.Core.Interop.NativeMethods.SWP_NOZORDER);
+            }
+
+            // Move
+            if (result.Move.HasValue)
+            {
+                var (x, y) = result.Move.Value;
+                HyprWin.Core.Interop.NativeMethods.SetWindowPos(
+                    window.Handle, IntPtr.Zero, x, y, 0, 0,
+                    HyprWin.Core.Interop.NativeMethods.SWP_NOSIZE |
+                    HyprWin.Core.Interop.NativeMethods.SWP_NOZORDER);
+            }
+
+            // Float (remove from tiling — Hyprland togglefloating)
+            if (result.Float == true)
+            {
+                _dispatcher.ToggleFloat();
+            }
+
+            // Workspace assignment
+            if (result.Workspace.HasValue)
+            {
+                int wsIndex = result.Workspace.Value - 1; // user-facing 1-based → 0-based
+                if (wsIndex >= 0)
+                    _dispatcher.MoveToWorkspace(wsIndex);
+            }
+
+            // Center on screen
+            if (result.Center == true)
+            {
+                HyprWin.Core.Interop.NativeMethods.GetWindowRect(window.Handle, out var rect);
+                int ww = rect.Right - rect.Left;
+                int wh = rect.Bottom - rect.Top;
+                var mon = _monitorManager.Monitors.FirstOrDefault();
+                if (mon != null)
+                {
+                    int cx = mon.WorkArea.Left + (mon.WorkArea.Right - mon.WorkArea.Left - ww) / 2;
+                    int cy = mon.WorkArea.Top + (mon.WorkArea.Bottom - mon.WorkArea.Top - wh) / 2;
+                    HyprWin.Core.Interop.NativeMethods.SetWindowPos(
+                        window.Handle, IntPtr.Zero, cx, cy, 0, 0,
+                        HyprWin.Core.Interop.NativeMethods.SWP_NOSIZE |
+                        HyprWin.Core.Interop.NativeMethods.SWP_NOZORDER);
+                }
+            }
+
+            // Fullscreen
+            if (result.Fullscreen == true)
+            {
+                _dispatcher.ToggleFullscreen();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Warn($"Error applying window rule to {window.ProcessName}: {ex.Message}");
+        }
+    }
+
+    private static System.Text.RegularExpressions.Regex? ToRegex(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return null;
+        return new System.Text.RegularExpressions.Regex(pattern,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+    }
+
+    private static (int, int)? ParsePair(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split('x', 'X', ',', ' ');
+        if (parts.Length >= 2 &&
+            int.TryParse(parts[0].Trim(), out int a) &&
+            int.TryParse(parts[1].Trim(), out int b))
+            return (a, b);
+        return null;
     }
 }

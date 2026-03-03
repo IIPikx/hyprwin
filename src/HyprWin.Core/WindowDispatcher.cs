@@ -619,6 +619,30 @@ public sealed class WindowDispatcher
         }
     }
 
+    /// <summary>
+    /// Launch an arbitrary program. Used by custom [[launch]] shortcut entries.
+    /// </summary>
+    public void LaunchProgram(string command, string args = "")
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = command,
+                UseShellExecute = true,
+            };
+            if (!string.IsNullOrWhiteSpace(args))
+                psi.Arguments = args;
+
+            Process.Start(psi);
+            Logger.Instance.Debug($"Launched program: {command} {args}".TrimEnd());
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Failed to launch program '{command}'", ex);
+        }
+    }
+
     // ──────────────── Helpers ────────────────
 
     /// <summary>

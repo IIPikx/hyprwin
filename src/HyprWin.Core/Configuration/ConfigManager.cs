@@ -159,6 +159,9 @@ public sealed class ConfigManager : IDisposable
             Theme = ParseTheme(table),
             TopBar = ParseTopBar(table),
             Exclude = ParseExclude(table),
+            Launch = ParseLaunchEntries(table),
+            WindowRules = ParseWindowRules(table),
+            Beziers = ParseBeziers(table),
         };
 
         return config;
@@ -260,6 +263,8 @@ public sealed class ConfigManager : IDisposable
             WindowCloseDurationMs = GetInt(t, "window_close_duration_ms", 150),
             WindowMoveDurationMs = GetInt(t, "window_move_duration_ms", 120),
             Easing = GetString(t, "easing", "ease_out_cubic"),
+            WindowOpenStyle = GetString(t, "window_open_style", "popin"),
+            PopinPercent = GetInt(t, "popin_percent", 80),
         };
     }
 
@@ -365,6 +370,104 @@ public sealed class ConfigManager : IDisposable
 
     // ──────────────── TOML helpers ────────────────
 
+    private static List<LaunchEntry> ParseLaunchEntries(TomlTable table)
+    {
+        var entries = new List<LaunchEntry>();
+        if (!table.TryGetValue("launch", out var obj))
+            return entries;
+
+        // [[launch]] is an array of tables in TOML
+        if (obj is TomlTableArray tableArray)
+        {
+            foreach (var t in tableArray)
+            {
+                var shortcut = GetString(t, "shortcut", "");
+                var command = GetString(t, "command", "");
+                if (string.IsNullOrWhiteSpace(shortcut) || string.IsNullOrWhiteSpace(command))
+                    continue;
+
+                entries.Add(new LaunchEntry
+                {
+                    Shortcut = shortcut,
+                    Command = command,
+                    Args = GetString(t, "args", ""),
+                });
+            }
+            Logger.Instance.Info($"Parsed {entries.Count} custom launch shortcut(s)");
+        }
+
+        return entries;
+    }
+
+    private static List<WindowRuleConfig> ParseWindowRules(TomlTable table)
+    {
+        var rules = new List<WindowRuleConfig>();
+        if (!table.TryGetValue("window_rule", out var obj))
+            return rules;
+
+        if (obj is TomlTableArray tableArray)
+        {
+            foreach (var t in tableArray)
+            {
+                // At least one match criterion is required
+                var matchProcess = GetStringOrNull(t, "match_process");
+                var matchClass = GetStringOrNull(t, "match_class");
+                var matchTitle = GetStringOrNull(t, "match_title");
+                if (matchProcess == null && matchClass == null && matchTitle == null)
+                    continue;
+
+                rules.Add(new WindowRuleConfig
+                {
+                    MatchProcess = matchProcess,
+                    MatchClass = matchClass,
+                    MatchTitle = matchTitle,
+                    Float = GetBoolOrNull(t, "float"),
+                    Fullscreen = GetBoolOrNull(t, "fullscreen"),
+                    Workspace = GetIntOrNull(t, "workspace"),
+                    Pin = GetBoolOrNull(t, "pin"),
+                    Center = GetBoolOrNull(t, "center"),
+                    NoAnim = GetBoolOrNull(t, "no_anim"),
+                    Opacity = GetDoubleOrNull(t, "opacity"),
+                    BorderColor = GetStringOrNull(t, "border_color"),
+                    BorderSize = GetIntOrNull(t, "border_size"),
+                    Size = GetStringOrNull(t, "size"),
+                    Move = GetStringOrNull(t, "move"),
+                });
+            }
+            Logger.Instance.Info($"Parsed {rules.Count} window rule(s)");
+        }
+
+        return rules;
+    }
+
+    private static List<BezierConfig> ParseBeziers(TomlTable table)
+    {
+        var beziers = new List<BezierConfig>();
+        if (!table.TryGetValue("bezier", out var obj))
+            return beziers;
+
+        if (obj is TomlTableArray tableArray)
+        {
+            foreach (var t in tableArray)
+            {
+                var name = GetString(t, "name", "");
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                beziers.Add(new BezierConfig
+                {
+                    Name = name,
+                    X0 = GetDouble(t, "x0", 0.0),
+                    Y0 = GetDouble(t, "y0", 0.0),
+                    X1 = GetDouble(t, "x1", 1.0),
+                    Y1 = GetDouble(t, "y1", 1.0),
+                });
+            }
+            Logger.Instance.Info($"Parsed {beziers.Count} bezier curve(s)");
+        }
+
+        return beziers;
+    }
+
     private static ExcludeConfig ParseExclude(TomlTable table)
     {
         if (!table.TryGetValue("exclude", out var obj) || obj is not TomlTable t)
@@ -393,6 +496,13 @@ public sealed class ConfigManager : IDisposable
         return defaultValue;
     }
 
+    private static string? GetStringOrNull(TomlTable t, string key)
+    {
+        if (t.TryGetValue(key, out var v) && v is string s && !string.IsNullOrWhiteSpace(s))
+            return s;
+        return null;
+    }
+
     private static int GetInt(TomlTable t, string key, int defaultValue)
     {
         if (t.TryGetValue(key, out var v))
@@ -403,11 +513,49 @@ public sealed class ConfigManager : IDisposable
         return defaultValue;
     }
 
+    private static int? GetIntOrNull(TomlTable t, string key)
+    {
+        if (t.TryGetValue(key, out var v))
+        {
+            if (v is long l) return (int)l;
+            if (v is int i) return i;
+        }
+        return null;
+    }
+
+    private static double GetDouble(TomlTable t, string key, double defaultValue)
+    {
+        if (t.TryGetValue(key, out var v))
+        {
+            if (v is double d) return d;
+            if (v is long l) return l;
+            if (v is int i) return i;
+        }
+        return defaultValue;
+    }
+
+    private static double? GetDoubleOrNull(TomlTable t, string key)
+    {
+        if (t.TryGetValue(key, out var v))
+        {
+            if (v is double d) return d;
+            if (v is long l) return l;
+        }
+        return null;
+    }
+
     private static bool GetBool(TomlTable t, string key, bool defaultValue)
     {
         if (t.TryGetValue(key, out var v) && v is bool b)
             return b;
         return defaultValue;
+    }
+
+    private static bool? GetBoolOrNull(TomlTable t, string key)
+    {
+        if (t.TryGetValue(key, out var v) && v is bool b)
+            return b;
+        return null;
     }
 
     public void Dispose()
