@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: HyprWin.HyprWin
+PackageVersion: 1.0.0
+Platform:
+  - Windows.Desktop
+MinimumOSVersion: 10.0.22000.0
+InstallerType: inno
+Scope: machine
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+InstallerSwitches:
+  Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+  SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
+  InstallLocation: /DIR="<INSTALLPATH>"
+  Log: /LOG="<LOGPATH>"
+UpgradeBehavior: install
+Installers:
+  - Architecture: x64
+    # TODO: Replace with your actual GitHub Releases URL after uploading
+    InstallerUrl: https://github.com/YOUR_USERNAME/hyprwin/releases/download/v1.0.0/HyprWin-Setup-1.0.0.exe
+    # TODO: Replace with actual SHA256 hash
+    # Generate with: certutil -hashfile HyprWin-Setup-1.0.0.exe SHA256
+    InstallerSha256: REPLACE_WITH_SHA256_HASH
+    ProductCode: "{B8A5E7F2-3C4D-4E6A-9F1B-2D8C7E0A5B3F}_is1"
+ManifestType: installer
+ManifestVersion: 1.6.0

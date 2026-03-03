@@ -195,7 +195,10 @@ public partial class App : Application
             // 17. Create tray icon
             CreateTrayIcon();
 
-            // 18. Start config file watching
+            // 18. Sync autostart registry entry with config
+            AutostartManager.SetEnabled(config.General.Autostart);
+
+            // 19. Start config file watching
             _configManager.ConfigChanged += OnConfigChanged;
             _configManager.StartWatching();
 
@@ -443,6 +446,9 @@ public partial class App : Application
                     config.Exclude.ProcessNames,
                     config.Exclude.ClassNames);
 
+                // Sync autostart registry entry
+                AutostartManager.SetEnabled(config.General.Autostart);
+
                 // Update top bars
                 foreach (var bar in _topBarWindows)
                     bar.ApplyConfig(config);
@@ -591,6 +597,19 @@ public partial class App : Application
             }
         };
 
+        var autostartItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "Autostart",
+            IsCheckable = true,
+            IsChecked = AutostartManager.IsEnabled(),
+        };
+        autostartItem.Click += (_, _) =>
+        {
+            bool newState = autostartItem.IsChecked;
+            AutostartManager.SetEnabled(newState);
+            Logger.Instance.Info($"Autostart toggled to {newState} via tray menu");
+        };
+
         var exitItem = new System.Windows.Controls.MenuItem { Header = "Exit" };
         exitItem.Click += (_, _) => Shutdown();
 
@@ -599,6 +618,7 @@ public partial class App : Application
         menu.Items.Add(openConfigFolderItem);
         menu.Items.Add(openLogItem);
         menu.Items.Add(new System.Windows.Controls.Separator());
+        menu.Items.Add(autostartItem);
         menu.Items.Add(exitItem);
 
         return menu;

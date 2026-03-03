@@ -20,6 +20,8 @@ workspace_count  = 3           # Number of virtual workspaces per monitor
 terminal_command = "wt.exe"    # Command to launch terminal (SUPER+RETURN)
 workspace_mode   = "monitor_bound"  # "monitor_bound" = Workspace N maps to Monitor N
                                      # "virtual" = per-monitor virtual desktops (hide/show)
+autostart        = true        # Start HyprWin automatically with Windows
+                                     # (writes to HKCU\...\Run registry key)
 
 # ─────────────────────── Keybinds ───────────────────────
 # Format: "MODIFIER+KEY" where modifiers are SUPER, SHIFT, CTRL, ALT

@@ -34,6 +34,10 @@ public sealed class GeneralConfig
     /// Workspace mode: "monitor_bound" (Workspace N = Monitor N, default) or "virtual" (per-monitor virtual desktops).
     /// </summary>
     public string WorkspaceMode { get; init; } = "monitor_bound";
+    /// <summary>
+    /// Whether HyprWin should start automatically with Windows (registry Run key).
+    /// </summary>
+    public bool Autostart { get; init; } = false;
 }
 
 public sealed class KeybindsConfig

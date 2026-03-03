@@ -177,6 +177,7 @@ public sealed class ConfigManager : IDisposable
             WorkspaceCount = GetInt(t, "workspace_count", 3),
             TerminalCommand = GetString(t, "terminal_command", "wt.exe"),
             WorkspaceMode = GetString(t, "workspace_mode", "monitor_bound"),
+            Autostart = GetBool(t, "autostart", false),
         };
     }
 
