@@ -76,11 +76,29 @@ public sealed class ConfigManager : IDisposable
         if (!File.Exists(_configPath))
         {
             Logger.Instance.Info($"Config file not found, generating default at: {_configPath}");
-            File.WriteAllText(_configPath, DefaultConfig.Content);
+            File.WriteAllText(_configPath, DefaultConfig.Content, System.Text.Encoding.UTF8);
         }
 
-        _current = ParseConfig(_configPath);
-        Logger.Instance.Info("Configuration loaded successfully");
+        try
+        {
+            _current = ParseConfig(_configPath);
+            Logger.Instance.Info("Configuration loaded successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Config file has syntax errors, regenerating default config", ex);
+
+            // Back up the broken config so the user doesn't lose custom values
+            var backupPath = _configPath + ".broken";
+            try { File.Copy(_configPath, backupPath, overwrite: true); } catch { }
+
+            // Overwrite with clean default config
+            File.WriteAllText(_configPath, DefaultConfig.Content, System.Text.Encoding.UTF8);
+            _current = ParseConfig(_configPath);
+
+            Logger.Instance.Info($"Default config restored. Broken config backed up to: {backupPath}");
+        }
+
         return _current;
     }
 
