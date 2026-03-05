@@ -81,7 +81,13 @@ public sealed class TaskbarManager : IDisposable
                 return true;
             }, IntPtr.Zero);
 
-            // Broadcast WM_SETTINGCHANGE so the shell refreshes all work-area reservations
+            // Use synchronous SendMessage so the shell processes WM_SETTINGCHANGE
+            // before HyprWin exits — this ensures work-area reservations are refreshed.
+            NativeMethods.SendMessage(NativeMethods.HWND_BROADCAST,
+                NativeMethods.WM_SETTINGCHANGE, IntPtr.Zero, IntPtr.Zero);
+
+            // Small delay then send again to catch any late-initializing shell components
+            System.Threading.Thread.Sleep(100);
             NativeMethods.PostMessage(NativeMethods.HWND_BROADCAST,
                 NativeMethods.WM_SETTINGCHANGE, IntPtr.Zero, IntPtr.Zero);
 

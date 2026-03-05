@@ -7,14 +7,15 @@ using HyprWin.Core.Interop;
 namespace HyprWin.Core;
 
 /// <summary>
-/// Renders a colored border around the active (focused) window using a transparent WPF overlay.
-/// Uses SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE) for lag-free position tracking
-/// and SetWindowPos for direct Win32 repositioning (bypasses WPF layout pass).
+/// Renders a colored border around the active (focused) window.
+/// Uses a non-transparent WPF window with a Win32 region (SetWindowRgn) for the frame shape.
+/// This avoids AllowsTransparency=true software rendering and uses GPU-accelerated rendering.
+/// Position tracking via SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE) for zero-lag updates
+/// and direct Win32 SetWindowPos (bypasses WPF layout pass).
 /// </summary>
 public sealed class BorderRenderer : IDisposable
 {
     private Window? _borderWindow;
-    private Border? _borderElement;
     private IntPtr _borderHwnd;
     private IntPtr _trackedHwnd;
     private bool _disposed;
@@ -26,8 +27,10 @@ public sealed class BorderRenderer : IDisposable
     // Fallback polling timer for focus changes and edge cases
     private System.Windows.Threading.DispatcherTimer? _fallbackTimer;
 
-    // Cached last position to skip redundant updates
+    // Cached last position/size to skip redundant updates
     private NativeMethods.RECT _lastRect;
+    private int _lastRegionW;
+    private int _lastRegionH;
 
     private string _activeColor = "#cba6f7";
     private string _inactiveColor = "#45475a";
@@ -39,39 +42,37 @@ public sealed class BorderRenderer : IDisposable
     /// </summary>
     public void Start()
     {
+        var brush = BrushFromHex(_activeColor);
+
         _borderWindow = new Window
         {
             WindowStyle = WindowStyle.None,
-            AllowsTransparency = true,
-            Background = Brushes.Transparent,
+            AllowsTransparency = false, // GPU-accelerated rendering — no software fallback
+            Background = brush,
             Topmost = true,
             ShowInTaskbar = false,
             ResizeMode = ResizeMode.NoResize,
             IsHitTestVisible = false,
-            Width = 0,
-            Height = 0,
+            Width = 1,
+            Height = 1,
             Left = -10000,
             Top = -10000,
         };
 
-        _borderElement = new Border
-        {
-            BorderBrush = BrushFromHex(_activeColor),
-            BorderThickness = new Thickness(_borderSize),
-            CornerRadius = new CornerRadius(_rounding),
-            Background = Brushes.Transparent,
-        };
-
-        _borderWindow.Content = _borderElement;
         _borderWindow.Show();
 
         // Cache the HWND for direct Win32 calls (avoids WPF interop overhead per frame)
         _borderHwnd = new WindowInteropHelper(_borderWindow).Handle;
 
-        // Make the window extended-style transparent (click-through at Win32 level)
+        // Make the window click-through at the Win32 level:
+        // WS_EX_LAYERED + WS_EX_TRANSPARENT = click passes through to windows underneath
+        // WS_EX_TOOLWINDOW = hides from Alt+Tab
         int exStyle = NativeMethods.GetWindowLong(_borderHwnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLong(_borderHwnd, NativeMethods.GWL_EXSTYLE,
             exStyle | (int)NativeMethods.WS_EX_TRANSPARENT | (int)NativeMethods.WS_EX_LAYERED | (int)NativeMethods.WS_EX_TOOLWINDOW);
+
+        // Set fully opaque — the region handles the visible shape, not transparency
+        NativeMethods.SetLayeredWindowAttributes(_borderHwnd, 0, 255, NativeMethods.LWA_ALPHA);
 
         _borderWindow.Title = "HyprWinBorder";
 
@@ -93,7 +94,7 @@ public sealed class BorderRenderer : IDisposable
         _fallbackTimer.Tick += OnFallbackTick;
         _fallbackTimer.Start();
 
-        Logger.Instance.Info("Border renderer started (WinEvent-driven)");
+        Logger.Instance.Info("Border renderer started (WinEvent-driven, region-based)");
     }
 
     /// <summary>
@@ -106,12 +107,14 @@ public sealed class BorderRenderer : IDisposable
         _borderSize = borderSize;
         _rounding = rounding;
 
-        if (_borderElement != null)
+        if (_borderWindow != null)
         {
-            _borderElement.BorderBrush = BrushFromHex(_activeColor);
-            _borderElement.BorderThickness = new Thickness(_borderSize);
-            _borderElement.CornerRadius = new CornerRadius(_rounding);
+            _borderWindow.Background = BrushFromHex(_activeColor);
         }
+
+        // Force region recalculation on next position update
+        _lastRegionW = 0;
+        _lastRegionH = 0;
     }
 
     /// <summary>
@@ -196,6 +199,9 @@ public sealed class BorderRenderer : IDisposable
             int w = rect.Width + offset * 2;
             int h = rect.Height + offset * 2;
 
+            // Update the Win32 region if the window size changed (creates frame shape)
+            UpdateWindowRegion(w, h);
+
             // Direct Win32 repositioning — no WPF layout pass, minimal latency
             NativeMethods.SetWindowPos(_borderHwnd, NativeMethods.HWND_TOPMOST,
                 x, y, w, h,
@@ -207,16 +213,51 @@ public sealed class BorderRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Creates a frame-shaped Win32 region (outer rounded rect minus inner rounded rect)
+    /// and applies it to the border window. Only recreated when size changes.
+    /// </summary>
+    private void UpdateWindowRegion(int w, int h)
+    {
+        if (w == _lastRegionW && h == _lastRegionH) return;
+        _lastRegionW = w;
+        _lastRegionH = h;
+
+        int bs = _borderSize;
+        int outerRound = (_rounding + bs) * 2;   // ellipse diameter for outer corners
+        int innerRound = _rounding * 2;           // ellipse diameter for inner corners
+
+        // Outer rect = full window area, Inner rect = window area minus border thickness
+        // CreateRoundRectRgn uses exclusive right/bottom, hence +1
+        IntPtr outer = NativeMethods.CreateRoundRectRgn(0, 0, w + 1, h + 1, outerRound, outerRound);
+        IntPtr inner = NativeMethods.CreateRoundRectRgn(bs, bs, w - bs + 1, h - bs + 1, innerRound, innerRound);
+        IntPtr frame = NativeMethods.CreateRectRgn(0, 0, 0, 0); // empty destination
+
+        // frame = outer minus inner → hollow border shape
+        NativeMethods.CombineRgn(frame, outer, inner, NativeMethods.RGN_DIFF);
+
+        // SetWindowRgn takes ownership of 'frame' — do NOT delete it
+        NativeMethods.SetWindowRgn(_borderHwnd, frame, true);
+
+        // Clean up temporary regions (frame is now owned by the window)
+        NativeMethods.DeleteObject(outer);
+        NativeMethods.DeleteObject(inner);
+    }
+
     private static SolidColorBrush BrushFromHex(string hex)
     {
         try
         {
             var color = (Color)ColorConverter.ConvertFromString(hex);
-            return new SolidColorBrush(color);
+            var brush = new SolidColorBrush(color);
+            brush.Freeze(); // Freeze for cross-thread safety and performance
+            return brush;
         }
         catch
         {
-            return Brushes.MediumPurple;
+            var brush = new SolidColorBrush(Colors.MediumPurple);
+            brush.Freeze();
+            return brush;
         }
     }
 

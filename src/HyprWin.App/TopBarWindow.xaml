@@ -8,7 +8,7 @@
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         Title="HyprWinTopBar">
-    <Border x:Name="BarBorder" CornerRadius="0">
+    <Border x:Name="BarBorder" CornerRadius="0" MouseRightButtonUp="BarBorder_RightClick">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />

@@ -2,10 +2,11 @@
 bin/
 obj/
 
-# Publish output — keep config but not the executable
-publish/*.exe
-publish/*.pdb
-publish/*.dll
+# Publish output
+publish/
+
+# Website
+website/
 
 # Visual Studio / Rider
 .vs/

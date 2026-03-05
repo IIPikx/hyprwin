@@ -245,24 +245,24 @@ public partial class App : Application
     {
         Logger.Instance.Info("HyprWin shutting down...");
 
-        // Restore taskbar: kill Explorer and restart it so the taskbar & system
-        // tray come back cleanly (SW_SHOW alone is unreliable after SW_HIDE).
-        try { RestartExplorer(); } catch { }
-
-        // Dispose TaskbarManager as well so rcWork is refreshed on the shell side
-        try { _taskbarManager?.Dispose(); } catch { }
-
         try
         {
+            // 1. Stop keyboard hook first (release all hotkeys)
             _keyboardHook?.Dispose();
 
-            // Restore all managed windows to their original positions
+            // 2. Stop border renderer
+            _borderRenderer?.Dispose();
+
+            // 3. Restore all managed windows to their original positions & size
             _windowTracker?.RestoreAllWindows();
 
+            // 4. Restore native taskbar (SW_SHOW + WM_SETTINGCHANGE, no Explorer restart)
+            try { _taskbarManager?.Dispose(); } catch { }
+
+            // 5. Clean up remaining services
             _sysInfoService?.Dispose();
             _trayIconService?.Dispose();
             _windowTracker?.Dispose();
-            _borderRenderer?.Dispose();
             _animationEngine?.Dispose();
             _configManager?.Dispose();
 
@@ -280,46 +280,6 @@ public partial class App : Application
         Logger.Instance.Dispose();
 
         base.OnExit(e);
-    }
-
-    // ──────────────── Explorer Restart ────────────────
-
-    /// <summary>
-    /// Kills all explorer.exe instances and starts a fresh one.
-    /// This is the most reliable way to restore the taskbar, system tray, and
-    /// work-area reservation after HyprWin has hidden/modified the shell.
-    /// </summary>
-    private static void RestartExplorer()
-    {
-        try
-        {
-            Logger.Instance.Info("Restarting Explorer to restore taskbar...");
-
-            // Kill all explorer instances
-            foreach (var proc in Process.GetProcessesByName("explorer"))
-            {
-                try { proc.Kill(); proc.WaitForExit(3000); }
-                catch { /* ignore — may already have exited */ }
-                finally { proc.Dispose(); }
-            }
-
-            // Brief pause so Windows detects the crash and its auto-restart
-            // doesn't interfere with our explicit restart below.
-            System.Threading.Thread.Sleep(500);
-
-            // Start a fresh explorer (shell mode)
-            Process.Start(new ProcessStartInfo
-            {
-                FileName         = "explorer.exe",
-                UseShellExecute  = true,
-            });
-
-            Logger.Instance.Info("Explorer restarted successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Error("Failed to restart Explorer", ex);
-        }
     }
 
     // ──────────────── Keybind Registration ────────────────

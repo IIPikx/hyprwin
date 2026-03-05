@@ -404,6 +404,21 @@ public partial class TopBarWindow : Window
     {
         if (sender is FrameworkElement fe && fe.Tag is TrayIconInfo icon)
             TrayIconService.SendIconClick(icon, rightClick: true);
+        e.Handled = true; // Prevent TopBar context menu from showing
+    }
+
+    private void BarBorder_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.Handled) return;
+
+        var menu = new ContextMenu();
+
+        var exitItem = new MenuItem { Header = "HyprWin schließen" };
+        exitItem.Click += (_, _) => Application.Current.Shutdown();
+
+        menu.Items.Add(exitItem);
+        menu.IsOpen = true;
+        e.Handled = true;
     }
 
     private void TaskManagerButton_Click(object sender, RoutedEventArgs e)
