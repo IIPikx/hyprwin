@@ -31,6 +31,8 @@ public sealed class SystemMetrics
     public bool    NetConnected  { get; init; }
     public string  NetName       { get; init; } = "";
     public bool    IsWifi        { get; init; }
+    public long    NetDownBytesPerSec { get; init; }
+    public long    NetUpBytesPerSec   { get; init; }
 
     // Media (populated via async refresh, may lag one cycle)
     public bool    HasMedia      { get; init; }
@@ -73,6 +75,11 @@ public sealed class SystemInfoService : IDisposable
     private string _mediaTitle   = "";
     private string _mediaArtist  = "";
     private bool   _mediaPlaying;
+
+    // ── Network rate tracking ────────────────────────────────────────────────
+    private long  _lastBytesReceived;
+    private long  _lastBytesSent;
+    private DateTime _lastNetSample = DateTime.MinValue;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -122,6 +129,7 @@ public sealed class SystemInfoService : IDisposable
             (float ramPct, ulong usedMb, ulong totalMb) = ReadMemory();
 
             (bool netConn, string netName, bool isWifi) = ReadNetwork();
+            (long downRate, long upRate) = ReadNetworkRate();
             int  volume  = AudioManager.GetVolume();
             bool muted   = AudioManager.IsMuted();
 
@@ -140,6 +148,8 @@ public sealed class SystemInfoService : IDisposable
                 NetConnected = netConn,
                 NetName     = netName,
                 IsWifi      = isWifi,
+                NetDownBytesPerSec = downRate,
+                NetUpBytesPerSec   = upRate,
                 HasMedia    = _hasMedia,
                 MediaTitle  = _mediaTitle,
                 MediaArtist = _mediaArtist,
@@ -221,6 +231,50 @@ public sealed class SystemInfoService : IDisposable
             return (false, "", false);
         }
         catch { return (false, "", false); }
+    }
+
+    /// <summary>
+    /// Calculate network download/upload rates by comparing total byte counters
+    /// since the last sample.
+    /// </summary>
+    private (long downBytesPerSec, long upBytesPerSec) ReadNetworkRate()
+    {
+        try
+        {
+            long totalReceived = 0, totalSent = 0;
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+
+                var stats = ni.GetIPStatistics();
+                totalReceived += stats.BytesReceived;
+                totalSent     += stats.BytesSent;
+            }
+
+            var now = DateTime.UtcNow;
+            if (_lastNetSample == DateTime.MinValue)
+            {
+                _lastBytesReceived = totalReceived;
+                _lastBytesSent     = totalSent;
+                _lastNetSample     = now;
+                return (0, 0);
+            }
+
+            double elapsed = (now - _lastNetSample).TotalSeconds;
+            if (elapsed < 0.5) return (0, 0);
+
+            long downRate = (long)((totalReceived - _lastBytesReceived) / elapsed);
+            long upRate   = (long)((totalSent     - _lastBytesSent)     / elapsed);
+
+            _lastBytesReceived = totalReceived;
+            _lastBytesSent     = totalSent;
+            _lastNetSample     = now;
+
+            return (Math.Max(0, downRate), Math.Max(0, upRate));
+        }
+        catch { return (0, 0); }
     }
 
     // ── WinRT async queries ───────────────────────────────────────────────────

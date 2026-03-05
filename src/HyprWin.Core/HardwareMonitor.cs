@@ -12,6 +12,7 @@ public sealed class HardwareMonitor : IDisposable
     private Computer?  _computer;
     private bool       _initialized;
     private bool       _disposed;
+    private bool       _hasLoggedSensors;
 
     public float CpuTempC   { get; private set; }
     public float GpuTempC   { get; private set; }
@@ -27,6 +28,7 @@ public sealed class HardwareMonitor : IDisposable
             {
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
+                IsMotherboardEnabled = true,
             };
             _computer.Open();
             _initialized = true;
@@ -52,6 +54,7 @@ public sealed class HardwareMonitor : IDisposable
         try
         {
             float cpuTemp = 0, gpuTemp = 0, gpuLoad = 0;
+            bool loggedSensors = !_hasLoggedSensors;
 
             foreach (var hardware in _computer.Hardware)
             {
@@ -77,19 +80,25 @@ public sealed class HardwareMonitor : IDisposable
                     case HardwareType.Cpu:
                         foreach (var sensor in AllSensors(hardware))
                         {
+                            if (loggedSensors && sensor.SensorType == SensorType.Temperature)
+                                Logger.Instance.Debug($"HardwareMonitor CPU temp sensor: '{sensor.Name}' = {sensor.Value}");
+
                             if (sensor.SensorType != SensorType.Temperature || !sensor.Value.HasValue)
                                 continue;
 
                             var name = sensor.Name;
-                            // Prefer "CPU Package" / "Tdie" (AMD) / "Tctl" as the canonical reading
+                            // Prefer "CPU Package" / "Tdie" (AMD) / "Tctl" / "Core (Tctl/Tdie)"
+                            // as the canonical reading
                             if (name.Contains("Package",  StringComparison.OrdinalIgnoreCase) ||
                                 name.Contains("Tdie",     StringComparison.OrdinalIgnoreCase) ||
-                                name.Contains("Tctl",     StringComparison.OrdinalIgnoreCase))
+                                name.Contains("Tctl",     StringComparison.OrdinalIgnoreCase) ||
+                                name.Contains("CCD",      StringComparison.OrdinalIgnoreCase))
                             {
                                 cpuTemp = sensor.Value.Value;
                             }
                             else if (cpuTemp == 0)
                             {
+                                // Fallback: take any temperature sensor (max value)
                                 cpuTemp = Math.Max(cpuTemp, sensor.Value.Value);
                             }
                         }
@@ -100,17 +109,27 @@ public sealed class HardwareMonitor : IDisposable
                     case HardwareType.GpuIntel:
                         foreach (var sensor in AllSensors(hardware))
                         {
+                            if (loggedSensors && (sensor.SensorType == SensorType.Temperature || sensor.SensorType == SensorType.Load))
+                                Logger.Instance.Debug($"HardwareMonitor GPU sensor: '{sensor.Name}' type={sensor.SensorType} = {sensor.Value}");
+
                             if (!sensor.Value.HasValue) continue;
 
                             if (sensor.SensorType == SensorType.Temperature)
                                 gpuTemp = sensor.Value.Value;
                             else if (sensor.SensorType == SensorType.Load &&
                                      (sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase) ||
+                                      sensor.Name.Contains("3D",   StringComparison.OrdinalIgnoreCase) ||
                                       sensor.Name.Equals("GPU",    StringComparison.OrdinalIgnoreCase)))
                                 gpuLoad = sensor.Value.Value;
                         }
                         break;
                 }
+            }
+
+            if (loggedSensors)
+            {
+                _hasLoggedSensors = true;
+                Logger.Instance.Info($"HardwareMonitor: CPU={cpuTemp}°C, GPU={gpuTemp}°C, GPU Load={gpuLoad}%");
             }
 
             CpuTempC   = cpuTemp;

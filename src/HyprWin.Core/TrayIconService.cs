@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -25,6 +26,8 @@ public sealed class TrayIconInfo
 /// <summary>
 /// Reads notification-area (system tray) icons from the hidden Windows taskbar
 /// by inspecting the ToolbarWindow32 controls that Explorer uses internally.
+/// On Windows 11, falls back to enumerating all ToolbarWindow32 children
+/// of Shell_TrayWnd and NotifyIconOverflowWindow.
 /// Polls periodically and fires <see cref="IconsUpdated"/> with fresh icon data.
 /// Click events can be forwarded to the original owner application.
 /// </summary>
@@ -55,6 +58,11 @@ public sealed class TrayIconService : IDisposable
     private const int WM_RBUTTONUP     = 0x0205;
     private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int WM_MOUSEMOVE     = 0x0200;
+
+    // Windows 11 NIN notification messages (new-style callback format)
+    private const int NIN_SELECT       = 0x0400;
+    private const int NIN_KEYSELECT    = 0x0401;
+    private const int WM_CONTEXTMENU   = 0x007B;
 
     // ── Struct sizes on x64 ──
     private const int TBBUTTON_SIZE_64 = 32;
@@ -89,11 +97,13 @@ public sealed class TrayIconService : IDisposable
 
     /// <summary>
     /// Read all visible system tray icons from the notification area toolbars.
-    /// Checks both the main tray and the overflow panel.
+    /// Checks both the main tray and the overflow panel, and uses
+    /// EnumChildWindows as a fallback for Windows 11.
     /// </summary>
     public List<TrayIconInfo> ReadTrayIcons()
     {
         var result = new List<TrayIconInfo>();
+        var toolbars = new List<IntPtr>();
 
         // 1. Main tray: Shell_TrayWnd > TrayNotifyWnd > SysPager > ToolbarWindow32
         var trayWnd = NativeMethods.FindWindow("Shell_TrayWnd", null);
@@ -107,22 +117,57 @@ public sealed class TrayIconService : IDisposable
                 {
                     var toolbar = NativeMethods.FindWindowEx(sysPager, IntPtr.Zero, "ToolbarWindow32", null);
                     if (toolbar != IntPtr.Zero)
-                        ReadToolbarIcons(toolbar, result);
+                        toolbars.Add(toolbar);
                 }
+            }
+
+            // Fallback: enumerate ALL ToolbarWindow32 children recursively under Shell_TrayWnd
+            if (toolbars.Count == 0)
+            {
+                EnumToolbarChildren(trayWnd, toolbars);
             }
         }
 
         // 2. Overflow panel: NotifyIconOverflowWindow > ToolbarWindow32
-        //    On Windows 11 all icons live here when the taskbar is hidden.
+        //    On Windows 11 all icons often live here when the taskbar is hidden.
         var overflowWnd = NativeMethods.FindWindow("NotifyIconOverflowWindow", null);
         if (overflowWnd != IntPtr.Zero)
         {
             var toolbar = NativeMethods.FindWindowEx(overflowWnd, IntPtr.Zero, "ToolbarWindow32", null);
-            if (toolbar != IntPtr.Zero)
-                ReadToolbarIcons(toolbar, result);
+            if (toolbar != IntPtr.Zero && !toolbars.Contains(toolbar))
+                toolbars.Add(toolbar);
+
+            // Fallback: enumerate children
+            if (toolbars.Count <= 1)
+                EnumToolbarChildren(overflowWnd, toolbars);
         }
 
+        Logger.Instance.Debug($"TrayIconService: Found {toolbars.Count} toolbar(s) to scan");
+
+        // Read icons from all discovered toolbars
+        foreach (var tb in toolbars)
+        {
+            ReadToolbarIcons(tb, result);
+        }
+
+        Logger.Instance.Debug($"TrayIconService: Total icons found: {result.Count}");
         return result;
+    }
+
+    /// <summary>
+    /// Recursively enumerate child windows to find all ToolbarWindow32 instances.
+    /// </summary>
+    private static void EnumToolbarChildren(IntPtr parent, List<IntPtr> toolbars)
+    {
+        var classNameBuf = new StringBuilder(256);
+        NativeMethods.EnumChildWindows(parent, (hwnd, _) =>
+        {
+            classNameBuf.Clear();
+            NativeMethods.GetClassName(hwnd, classNameBuf, classNameBuf.Capacity);
+            if (classNameBuf.ToString() == "ToolbarWindow32" && !toolbars.Contains(hwnd))
+                toolbars.Add(hwnd);
+            return true; // continue enumeration
+        }, IntPtr.Zero);
     }
 
     /// <summary>
@@ -131,24 +176,38 @@ public sealed class TrayIconService : IDisposable
     private void ReadToolbarIcons(IntPtr toolbar, List<TrayIconInfo> result)
     {
         int buttonCount = (int)NativeMethods.SendMessage(toolbar, TB_BUTTONCOUNT, IntPtr.Zero, IntPtr.Zero);
-        if (buttonCount <= 0) return;
+        if (buttonCount <= 0)
+        {
+            Logger.Instance.Debug($"TrayIconService: Toolbar {toolbar} has 0 buttons");
+            return;
+        }
 
         NativeMethods.GetWindowThreadProcessId(toolbar, out uint processId);
         if (processId == 0) return;
 
         var hProcess = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
             false, processId);
-        if (hProcess == IntPtr.Zero) return;
+        if (hProcess == IntPtr.Zero)
+        {
+            Logger.Instance.Debug($"TrayIconService: OpenProcess failed for PID {processId}, error {Marshal.GetLastWin32Error()}");
+            return;
+        }
 
         IntPtr remoteMem = IntPtr.Zero;
         try
         {
             int allocSize = TBBUTTON_SIZE_64 + TRAYDATA_SIZE + 512;
             remoteMem = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)allocSize, MEM_COMMIT, PAGE_READWRITE);
-            if (remoteMem == IntPtr.Zero) return;
+            if (remoteMem == IntPtr.Zero)
+            {
+                Logger.Instance.Debug($"TrayIconService: VirtualAllocEx failed, error {Marshal.GetLastWin32Error()}");
+                return;
+            }
 
             var tbBuf   = new byte[TBBUTTON_SIZE_64];
             var trayBuf = new byte[TRAYDATA_SIZE];
+
+            Logger.Instance.Debug($"TrayIconService: Reading {buttonCount} buttons from toolbar {toolbar}");
 
             for (int i = 0; i < buttonCount; i++)
             {
@@ -259,7 +318,7 @@ public sealed class TrayIconService : IDisposable
 
     /// <summary>
     /// Forward a left-click or right-click to the original tray icon owner.
-    /// Uses the legacy callback format (wParam = uID, lParam = mouse-message).
+    /// Supports both legacy callback format and Windows 11 new-style notifications.
     /// </summary>
     public static void SendIconClick(TrayIconInfo icon, bool rightClick)
     {
@@ -271,11 +330,29 @@ public sealed class TrayIconService : IDisposable
             int downMsg = rightClick ? WM_RBUTTONDOWN : WM_LBUTTONDOWN;
             int upMsg   = rightClick ? WM_RBUTTONUP   : WM_LBUTTONUP;
 
-            // Simulate down + up so apps that check both messages work correctly
+            // Build lParam: pack the mouse message in the low word, and the icon coords (0,0) are fine
+            // On Windows 11, some apps expect the new NIN format where
+            // lParam = mouse-message and wParam = MAKELONG(mouse.x, mouse.y) with HIWORD = uID
+            // But many apps (especially legacy ones) still use the old format.
+
+            // Try legacy format first: wParam = uID, lParam = mouse-message
             NativeMethods.PostMessage(icon.OwnerHwnd, icon.CallbackMessage,
                 (IntPtr)icon.IconId, (IntPtr)downMsg);
             NativeMethods.PostMessage(icon.OwnerHwnd, icon.CallbackMessage,
                 (IntPtr)icon.IconId, (IntPtr)upMsg);
+
+            // For right-click, also send WM_CONTEXTMENU which some Win11 apps listen for
+            if (rightClick)
+            {
+                NativeMethods.PostMessage(icon.OwnerHwnd, icon.CallbackMessage,
+                    (IntPtr)icon.IconId, (IntPtr)WM_CONTEXTMENU);
+            }
+            else
+            {
+                // For left-click, also try NIN_SELECT (some modern apps only respond to this)
+                NativeMethods.PostMessage(icon.OwnerHwnd, icon.CallbackMessage,
+                    (IntPtr)icon.IconId, (IntPtr)NIN_SELECT);
+            }
         }
         catch (Exception ex)
         {

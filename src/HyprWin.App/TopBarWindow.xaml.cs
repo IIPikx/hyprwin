@@ -156,7 +156,7 @@ public partial class TopBarWindow : Window
         ClockText.Foreground = fgBrush;
 
         // Apply to system modules
-        foreach (var tb in new[] { CpuText, CpuTempText, GpuText, GpuTempText, MemoryText, VolumeText })
+        foreach (var tb in new[] { CpuText, CpuTempText, GpuText, GpuTempText, MemoryText, VolumeText, NetworkText })
         {
             tb.FontFamily = fontFamily;
             tb.FontSize = fontSize;
@@ -177,6 +177,7 @@ public partial class TopBarWindow : Window
         GpuTempText.Visibility = rightModules.Contains("gpu_temp") ? Visibility.Visible : Visibility.Collapsed;
         MemoryText.Visibility  = rightModules.Contains("memory")   ? Visibility.Visible : Visibility.Collapsed;
         VolumeText.Visibility  = rightModules.Contains("volume")   ? Visibility.Visible : Visibility.Collapsed;
+        NetworkText.Visibility = rightModules.Contains("network")  ? Visibility.Visible : Visibility.Collapsed;
 
         // Buttons
         WindowsMenuButton.Foreground = fgBrush;
@@ -331,6 +332,22 @@ public partial class TopBarWindow : Window
             string icon = m.IsMuted ? "🔇" : "🔊";
             VolumeText.Text = $" {icon} {m.Volume}%";
         }
+
+        if (NetworkText.Visibility == Visibility.Visible)
+        {
+            string down = FormatBytesRate(m.NetDownBytesPerSec);
+            string up   = FormatBytesRate(m.NetUpBytesPerSec);
+            NetworkText.Text = $" ↓{down} ↑{up}";
+        }
+    }
+
+    private static string FormatBytesRate(long bytesPerSec)
+    {
+        if (bytesPerSec < 1024)
+            return $"{bytesPerSec} B/s";
+        if (bytesPerSec < 1024 * 1024)
+            return $"{bytesPerSec / 1024.0:F0} KB/s";
+        return $"{bytesPerSec / (1024.0 * 1024.0):F1} MB/s";
     }
 
     // ──────────────── Workspace Indicators ────────────────
@@ -426,10 +443,8 @@ public partial class TopBarWindow : Window
     {
         try
         {
-            // Simulate Win+X to open the Windows power user / context menu
+            // Simulate a single Win key press+release to open the Start menu
             HyprWin.Core.Interop.NativeMethods.keybd_event((byte)HyprWin.Core.Interop.NativeMethods.VK_LWIN, 0, 0, UIntPtr.Zero);
-            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)'X', 0, 0, UIntPtr.Zero);
-            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)'X', 0, HyprWin.Core.Interop.NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
             HyprWin.Core.Interop.NativeMethods.keybd_event((byte)HyprWin.Core.Interop.NativeMethods.VK_LWIN, 0, HyprWin.Core.Interop.NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
         catch (Exception ex)
