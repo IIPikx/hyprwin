@@ -52,6 +52,8 @@ resize_right   = "SUPER+CTRL+RIGHT"
 resize_up      = "SUPER+CTRL+UP"
 resize_down    = "SUPER+CTRL+DOWN"
 launch_taskmgr = "CTRL+SHIFT+ESCAPE"  # Task Manager (explicit — LL hook blocks native shortcut)
+launch_settings = "SUPER+I"            # Windows Settings
+launch_color_picker = "SUPER+SHIFT+C"  # PowerToys Color Picker
 
 # ─────────────────────── Keys to Suppress ───────────────────────
 # Native Windows shortcuts to intercept and suppress.
@@ -60,7 +62,8 @@ launch_taskmgr = "CTRL+SHIFT+ESCAPE"  # Task Manager (explicit — LL hook block
 keys = [
     "WIN+LEFT", "WIN+RIGHT", "WIN+UP", "WIN+DOWN",
     "WIN+D", "WIN+TAB",
-    "WIN+1", "WIN+2", "WIN+3"
+    "WIN+1", "WIN+2", "WIN+3",
+    "WIN+I"
 ]
 
 # ─────────────────────── Keys to Passthrough ───────────────────────

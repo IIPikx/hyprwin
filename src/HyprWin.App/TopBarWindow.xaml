@@ -16,11 +16,33 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             
-            <!-- Left: Workspace Indicators -->
+            <!-- Left: Windows Menu Icon + Workspace Indicators -->
             <StackPanel Grid.Column="0" 
                         Orientation="Horizontal" 
                         VerticalAlignment="Center"
                         Margin="12,0,0,0">
+                <!-- Windows Menu Button -->
+                <Button x:Name="WindowsMenuButton"
+                        Content=""
+                        Click="WindowsMenuButton_Click"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="15"
+                        Padding="6,2"
+                        Margin="0,0,8,0"
+                        Cursor="Hand"
+                        ToolTip="Windows Menu">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
                 <ItemsControl x:Name="WorkspaceIndicators">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

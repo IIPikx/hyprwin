@@ -179,6 +179,7 @@ public partial class TopBarWindow : Window
         VolumeText.Visibility  = rightModules.Contains("volume")   ? Visibility.Visible : Visibility.Collapsed;
 
         // Buttons
+        WindowsMenuButton.Foreground = fgBrush;
         TaskManagerButton.Foreground = fgBrush;
         TaskManagerButton.FontFamily = fontFamily;
         SystemMenuButton.Foreground = fgBrush;
@@ -419,6 +420,22 @@ public partial class TopBarWindow : Window
         menu.Items.Add(exitItem);
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void WindowsMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Simulate Win+X to open the Windows power user / context menu
+            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)HyprWin.Core.Interop.NativeMethods.VK_LWIN, 0, 0, UIntPtr.Zero);
+            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)'X', 0, 0, UIntPtr.Zero);
+            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)'X', 0, HyprWin.Core.Interop.NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
+            HyprWin.Core.Interop.NativeMethods.keybd_event((byte)HyprWin.Core.Interop.NativeMethods.VK_LWIN, 0, HyprWin.Core.Interop.NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Failed to open Windows menu", ex);
+        }
     }
 
     private void TaskManagerButton_Click(object sender, RoutedEventArgs e)

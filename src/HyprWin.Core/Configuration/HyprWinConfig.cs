@@ -67,6 +67,8 @@ public sealed class KeybindsConfig
     public string ResizeUp { get; init; } = "SUPER+CTRL+UP";
     public string ResizeDown { get; init; } = "SUPER+CTRL+DOWN";
     public string LaunchTaskmgr { get; init; } = "CTRL+SHIFT+ESCAPE";
+    public string LaunchSettings { get; init; } = "SUPER+I";
+    public string LaunchColorPicker { get; init; } = "SUPER+SHIFT+C";
 }
 
 public sealed class WindowsKeysToSuppressConfig

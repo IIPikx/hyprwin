@@ -320,6 +320,10 @@ public partial class App : Application
         // Task Manager — explicit keybind because the LL hook interferes with native Ctrl+Shift+Esc
         _keyboardHook.RegisterKeybind(kb.LaunchTaskmgr, _dispatcher.LaunchTaskManager);
 
+        // Settings & Color Picker
+        _keyboardHook.RegisterKeybind(kb.LaunchSettings, () => _dispatcher.LaunchProgram("ms-settings:"));
+        _keyboardHook.RegisterKeybind(kb.LaunchColorPicker, () => _dispatcher.LaunchProgram("PowerToys.ColorPickerUI.exe"));
+
         // Workspaces
         _keyboardHook.RegisterKeybind(kb.Workspace1, () => _dispatcher.SwitchToWorkspace(0));
         _keyboardHook.RegisterKeybind(kb.Workspace2, () => _dispatcher.SwitchToWorkspace(1));
