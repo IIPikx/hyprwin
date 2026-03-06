@@ -8,6 +8,20 @@
     <RootNamespace>HyprWin.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>hyprwin.ico</ApplicationIcon>
+
+    <!-- Assembly metadata — reduces AV false positives -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Company>HyprWin</Company>
+    <Product>HyprWin</Product>
+    <Authors>HyprWin Contributors</Authors>
+    <Description>HyprWin — a Hyprland-inspired tiling window manager for Windows 11</Description>
+    <Copyright>Copyright © 2025-2026 HyprWin Contributors</Copyright>
+
+    <!-- Publish settings that reduce AV triggers -->
+    <DebugType>embedded</DebugType>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\HyprWin.Core\HyprWin.Core.csproj" />
