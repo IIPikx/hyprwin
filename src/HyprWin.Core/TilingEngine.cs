@@ -447,6 +447,47 @@ public sealed class TilingEngine
     }
 
     /// <summary>
+    /// Mirror (flip) the BSP tree along the horizontal axis.
+    /// Swaps First/Second children of every Vertical split node,
+    /// effectively reversing the left-right order of all windows.
+    /// </summary>
+    public void MirrorHorizontal(Workspace workspace)
+    {
+        if (workspace.LayoutRoot == null) return;
+        MirrorNode(workspace.LayoutRoot, BspNode.SplitDirection.Vertical);
+    }
+
+    /// <summary>
+    /// Mirror (flip) the BSP tree along the vertical axis.
+    /// Swaps First/Second children of every Horizontal split node,
+    /// effectively reversing the top-bottom order of all windows.
+    /// </summary>
+    public void MirrorVertical(Workspace workspace)
+    {
+        if (workspace.LayoutRoot == null) return;
+        MirrorNode(workspace.LayoutRoot, BspNode.SplitDirection.Horizontal);
+    }
+
+    /// <summary>
+    /// Recursively swap First/Second children for all split nodes matching the given direction.
+    /// </summary>
+    private static void MirrorNode(BspNode node, BspNode.SplitDirection targetDirection)
+    {
+        if (!node.IsSplit) return;
+
+        // Recurse into children first
+        if (node.First != null) MirrorNode(node.First, targetDirection);
+        if (node.Second != null) MirrorNode(node.Second, targetDirection);
+
+        // Swap children if this split matches the target direction
+        if (node.Direction == targetDirection)
+        {
+            (node.First, node.Second) = (node.Second, node.First);
+            node.Ratio = 1.0 - node.Ratio; // Invert ratio to preserve sizes
+        }
+    }
+
+    /// <summary>
     /// Resize the focused window in the given direction.
     /// Finds the nearest ancestor BSP split on the key's axis and moves it in the pressed direction:
     ///   RIGHT/DOWN → ratio += step (split moves right/down)

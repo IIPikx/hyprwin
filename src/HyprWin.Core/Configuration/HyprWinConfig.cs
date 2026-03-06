@@ -69,6 +69,8 @@ public sealed class KeybindsConfig
     public string LaunchTaskmgr { get; init; } = "CTRL+SHIFT+ESCAPE";
     public string LaunchSettings { get; init; } = "SUPER+I";
     public string LaunchColorPicker { get; init; } = "SUPER+SHIFT+C";
+    public string SwapHorizontal { get; init; } = "SUPER+SHIFT+X";
+    public string SwapVertical { get; init; } = "SUPER+SHIFT+Y";
 }
 
 public sealed class WindowsKeysToSuppressConfig

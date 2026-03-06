@@ -324,6 +324,10 @@ public partial class App : Application
         _keyboardHook.RegisterKeybind(kb.LaunchSettings, () => _dispatcher.LaunchProgram("ms-settings:"));
         _keyboardHook.RegisterKeybind(kb.LaunchColorPicker, () => _dispatcher.LaunchProgram("PowerToys.ColorPickerUI.exe"));
 
+        // Workspace mirror/flip
+        _keyboardHook.RegisterKeybind(kb.SwapHorizontal, _dispatcher.SwapHorizontal);
+        _keyboardHook.RegisterKeybind(kb.SwapVertical, _dispatcher.SwapVertical);
+
         // Workspaces
         _keyboardHook.RegisterKeybind(kb.Workspace1, () => _dispatcher.SwitchToWorkspace(0));
         _keyboardHook.RegisterKeybind(kb.Workspace2, () => _dispatcher.SwitchToWorkspace(1));

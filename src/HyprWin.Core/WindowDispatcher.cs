@@ -146,6 +146,50 @@ public sealed class WindowDispatcher
     public void MoveUp() => SwapInDirection(0, -1);
     public void MoveDown() => SwapInDirection(0, 1);
 
+    // ──────────────── Workspace Mirror/Flip ────────────────
+
+    /// <summary>
+    /// Mirror all windows horizontally (left↔right) in the active workspace.
+    /// </summary>
+    public void SwapHorizontal()
+    {
+        try
+        {
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+
+            _tilingEngine.MirrorHorizontal(ws);
+            _tilingEngine.TileWorkspace(ws, animate: false);
+            Logger.Instance.Debug($"Mirrored workspace {ws.Id} horizontally");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in SwapHorizontal", ex);
+        }
+    }
+
+    /// <summary>
+    /// Mirror all windows vertically (top↔bottom) in the active workspace.
+    /// </summary>
+    public void SwapVertical()
+    {
+        try
+        {
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+
+            _tilingEngine.MirrorVertical(ws);
+            _tilingEngine.TileWorkspace(ws, animate: false);
+            Logger.Instance.Debug($"Mirrored workspace {ws.Id} vertically");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in SwapVertical", ex);
+        }
+    }
+
     // ──────────────── Window Resizing ────────────────
 
     public void ResizeLeft() => ResizeInDirection(-1, 0);
