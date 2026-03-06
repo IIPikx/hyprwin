@@ -280,6 +280,10 @@ public partial class App : Application
         Logger.Instance.Dispose();
 
         base.OnExit(e);
+
+        // Force-terminate the process to kill any lingering background threads
+        // (timers, WinRT async tasks, COM servers, etc.)
+        Environment.Exit(e.ApplicationExitCode);
     }
 
     // ──────────────── Keybind Registration ────────────────
