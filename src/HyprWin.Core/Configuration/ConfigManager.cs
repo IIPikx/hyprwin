@@ -225,10 +225,18 @@ public sealed class ConfigManager : IDisposable
             MoveToWs3 = GetString(t, "move_to_ws_3", "SUPER+SHIFT+3"),
             LaunchTerminal = GetString(t, "launch_terminal", "SUPER+RETURN"),
             LaunchExplorer = GetString(t, "launch_explorer", "SUPER+E"),
+            Screenshot = GetString(t, "screenshot", "SUPER+SHIFT+S"),
             ResizeLeft = GetString(t, "resize_left", "SUPER+CTRL+LEFT"),
             ResizeRight = GetString(t, "resize_right", "SUPER+CTRL+RIGHT"),
             ResizeUp = GetString(t, "resize_up", "SUPER+CTRL+UP"),
             ResizeDown = GetString(t, "resize_down", "SUPER+CTRL+DOWN"),
+            LaunchTaskmgr = GetString(t, "launch_taskmgr", "CTRL+SHIFT+ESCAPE"),
+            LaunchSettings = GetString(t, "launch_settings", "SUPER+I"),
+            LaunchColorPicker = GetString(t, "launch_color_picker", "SUPER+SHIFT+C"),
+            SwapHorizontal = GetString(t, "swap_horizontal", "SUPER+SHIFT+X"),
+            SwapVertical = GetString(t, "swap_vertical", "SUPER+SHIFT+Y"),
+            RotateSplitVertical = GetString(t, "rotate_split_vertical", "SUPER+X"),
+            RotateSplitHorizontal = GetString(t, "rotate_split_horizontal", "SUPER+Y"),
         };
     }
 

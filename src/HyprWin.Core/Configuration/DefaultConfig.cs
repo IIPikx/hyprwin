@@ -56,6 +56,8 @@ launch_settings = "SUPER+I"            # Windows Settings
 launch_color_picker = "SUPER+SHIFT+C"  # PowerToys Color Picker
 swap_horizontal = "SUPER+SHIFT+X"      # Mirror windows left↔right in workspace
 swap_vertical   = "SUPER+SHIFT+Y"      # Mirror windows top↔bottom in workspace
+rotate_split_vertical   = "SUPER+Y"    # Set active window's split to side-by-side
+rotate_split_horizontal = "SUPER+X"    # Set active window's split to top/bottom
 
 # ─────────────────────── Keys to Suppress ───────────────────────
 # Native Windows shortcuts to intercept and suppress.

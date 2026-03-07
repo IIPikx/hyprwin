@@ -86,8 +86,8 @@ public partial class SettingsWindow : Window
             toml = SetTomlStringValue(toml, "top_bar_fg", TopBarFg.Text.Trim());
             toml = SetTomlStringValue(toml, "top_bar_accent", TopBarAccent.Text.Trim());
 
-            // Animations
-            toml = SetTomlValue(toml, "enabled", AnimEnabled.IsChecked == true ? "true" : "false");
+            // Animations — use section-aware replacement: "enabled" also exists in [top_bar]
+            toml = SetTomlValueInSection(toml, "animations", "enabled", AnimEnabled.IsChecked == true ? "true" : "false");
             toml = SetTomlValue(toml, "window_move_duration_ms", AnimMoveDuration.Text.Trim());
 
             // General
@@ -133,11 +133,45 @@ public partial class SettingsWindow : Window
 
     /// <summary>
     /// Replace a TOML key's value (numeric/boolean). Matches: key = value
+    /// Uses "${1}"/"${3}" notation to avoid $1digit ambiguity in .NET regex replacements
+    /// (e.g. value="4" would produce "$14" which .NET treats as backreference to group 14).
     /// </summary>
     private static string SetTomlValue(string toml, string key, string value)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)(.+?)(\s*(?:#.*)?)$";
-        return Regex.Replace(toml, pattern, $"$1{value}$3", RegexOptions.Multiline);
+        return Regex.Replace(toml, pattern, "${1}" + value + "${3}", RegexOptions.Multiline);
+    }
+
+    /// <summary>
+    /// Replace a TOML key's value only within a specific [section] block.
+    /// Prevents false positives when the same key name appears in multiple sections (e.g. "enabled").
+    /// </summary>
+    private static string SetTomlValueInSection(string toml, string section, string key, string value)
+    {
+        // Locate the [section] header
+        int start = toml.IndexOf($"\n[{section}]");
+        if (start < 0)
+        {
+            if (!toml.StartsWith($"[{section}]"))
+                return SetTomlValue(toml, key, value); // fallback: section not found
+            start = 0;
+        }
+        else
+        {
+            start += 1; // skip the leading newline
+        }
+
+        // Find the next top-level [section] header (not [[array]] headers)
+        int searchFrom = start + section.Length + 2;
+        var nextSection = Regex.Match(toml.Substring(searchFrom), @"^\[(?!\[)", RegexOptions.Multiline);
+        int end = nextSection.Success ? searchFrom + nextSection.Index : toml.Length;
+
+        string before = toml[..start];
+        string sectionContent = toml[start..end];
+        string after = toml[end..];
+
+        sectionContent = SetTomlValue(sectionContent, key, value);
+        return before + sectionContent + after;
     }
 
     /// <summary>
@@ -146,7 +180,7 @@ public partial class SettingsWindow : Window
     private static string SetTomlStringValue(string toml, string key, string value)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)""[^""]*""(.*)$";
-        return Regex.Replace(toml, pattern, $"$1\"{value}\"$2", RegexOptions.Multiline);
+        return Regex.Replace(toml, pattern, "${1}\"" + value + "\"${2}", RegexOptions.Multiline);
     }
 
     /// <summary>
@@ -155,6 +189,6 @@ public partial class SettingsWindow : Window
     private static string SetTomlArrayValue(string toml, string key, string arrayValue)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)\[.*?\](.*)$";
-        return Regex.Replace(toml, pattern, $"$1{arrayValue}$2", RegexOptions.Multiline);
+        return Regex.Replace(toml, pattern, "${1}" + arrayValue + "${2}", RegexOptions.Multiline);
     }
 }

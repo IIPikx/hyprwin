@@ -71,6 +71,8 @@ public sealed class KeybindsConfig
     public string LaunchColorPicker { get; init; } = "SUPER+SHIFT+C";
     public string SwapHorizontal { get; init; } = "SUPER+SHIFT+X";
     public string SwapVertical { get; init; } = "SUPER+SHIFT+Y";
+    public string RotateSplitVertical { get; init; } = "SUPER+Y";
+    public string RotateSplitHorizontal { get; init; } = "SUPER+X";
 }
 
 public sealed class WindowsKeysToSuppressConfig

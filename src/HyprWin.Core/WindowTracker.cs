@@ -282,6 +282,7 @@ public sealed class WindowTracker : IDisposable
                     MonitorIndex = mon?.Index ?? 0,
                     WorkspaceId = 0, // Default to workspace 0
                     IsMinimized = NativeMethods.IsIconic(hwnd),
+                    IsFloating = IsPopupOrDialog(hwnd), // dialogs/owned windows auto-float
                 };
 
                 lock (_lock)
@@ -392,6 +393,40 @@ public sealed class WindowTracker : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Returns true if the window is a popup, dialog, or owned window that should
+    /// not be tiled. Criteria (matches Hyprland behaviour):
+    ///   • Has an owner window (e.g. file-save dialog owned by the app)
+    ///   • Class is #32770 (standard Win32 dialog)
+    ///   • WS_EX_DLGMODALFRAME — modal dialog frame style
+    ///   • WS_POPUP without WS_THICKFRAME — popup with no resize handle (splash/tooltip-style)
+    /// </summary>
+    public static bool IsPopupOrDialog(IntPtr hwnd)
+    {
+        // Owned window → always a subordinate popup/dialog
+        if (NativeMethods.GetOwner(hwnd) != IntPtr.Zero)
+            return true;
+
+        string className = NativeMethods.GetWindowClassName(hwnd);
+        if (className == "#32770") // Standard Win32 dialog
+            return true;
+
+        uint style   = (uint)NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_STYLE);
+        uint exStyle = (uint)NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+
+        // Modal dialog frame
+        if ((exStyle & NativeMethods.WS_EX_DLGMODALFRAME) != 0)
+            return true;
+
+        // Popup without resize border (e.g. splash screens, non-resizable dialogs)
+        bool isPopup   = (style & NativeMethods.WS_POPUP)      != 0;
+        bool hasResize = (style & NativeMethods.WS_THICKFRAME)  != 0;
+        if (isPopup && !hasResize)
+            return true;
+
+        return false;
+    }
+
     private static bool IsSystemWindow(string className)
     {
         return className switch
@@ -461,6 +496,7 @@ public sealed class WindowTracker : IDisposable
                     Bounds = rect,
                     OriginalBounds = rect,
                     OriginalPlacement = placement,
+                    IsFloating = IsPopupOrDialog(hwnd), // dialogs/owned windows auto-float
                 };
 
                 lock (_lock)
@@ -539,6 +575,7 @@ public sealed class WindowTracker : IDisposable
                             Bounds = rect,
                             OriginalBounds = rect,
                             OriginalPlacement = placement,
+                            IsFloating = IsPopupOrDialog(hwnd), // dialogs/owned windows auto-float
                         };
 
                         lock (_lock)

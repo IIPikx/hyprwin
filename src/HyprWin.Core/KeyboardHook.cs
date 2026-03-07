@@ -261,15 +261,8 @@ public sealed class KeyboardHook : IDisposable
                     var currentMods = GetCurrentModifiers();
                     var comboKey = (currentMods, vk);
 
-                    // 1. Check passthrough combos FIRST (Win+R, Win+Space, etc.)
-                    if (_passthroughCombos.Contains(comboKey))
-                    {
-                        // Re-inject via keybd_event so the system sees the full combo
-                        InjectWinCombo(vk, currentMods);
-                        return (IntPtr)1; // Suppress the original (injected copy will pass through)
-                    }
-
-                    // 2. Check registered keybinds
+                    // 1. Check registered keybinds FIRST — explicit user binds always win
+                    // (passthrough is only the fallback for unbound combos)
                     if (_keybindActions.TryGetValue(comboKey, out var action))
                     {
                         if (_repeatableKeys.Contains(comboKey))
@@ -302,6 +295,13 @@ public sealed class KeyboardHook : IDisposable
                             }
                         }
                         return (IntPtr)1; // Always suppress (even on repeat)
+                    }
+
+                    // 2. Check passthrough combos — re-inject so the system handles them
+                    if (_passthroughCombos.Contains(comboKey))
+                    {
+                        InjectWinCombo(vk, currentMods);
+                        return (IntPtr)1; // Suppress the original (injected copy will pass through)
                     }
 
                     // 3. Check suppressed combos

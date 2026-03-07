@@ -447,6 +447,22 @@ public sealed class TilingEngine
     }
 
     /// <summary>
+    /// Set the split direction of the focused window's immediate parent BSP node.
+    /// Only the single split node that contains the focused window is changed —
+    /// all other splits in the workspace remain untouched.
+    /// </summary>
+    public bool RotateSplitToDirection(Workspace workspace, IntPtr hwnd, BspNode.SplitDirection direction)
+    {
+        if (workspace.LayoutRoot == null) return false;
+
+        var leaf = workspace.LayoutRoot.FindLeaf(hwnd);
+        if (leaf?.Parent == null) return false; // root leaf (only window) — nothing to rotate
+
+        leaf.Parent.Direction = direction;
+        return true;
+    }
+
+    /// <summary>
     /// Mirror (flip) the BSP tree along the horizontal axis.
     /// Swaps First/Second children of every Vertical split node,
     /// effectively reversing the left-right order of all windows.

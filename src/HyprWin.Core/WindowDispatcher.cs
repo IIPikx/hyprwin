@@ -170,6 +170,54 @@ public sealed class WindowDispatcher
     }
 
     /// <summary>
+    /// Rotate the active window's parent BSP split to Vertical (side-by-side, SUPER+X).
+    /// </summary>
+    public void RotateSplitVertical()
+    {
+        try
+        {
+            var hwnd = NativeMethods.GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return;
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+            if (_tilingEngine.RotateSplitToDirection(ws, hwnd, BspNode.SplitDirection.Vertical))
+            {
+                _tilingEngine.TileWorkspace(ws, animate: false);
+                Logger.Instance.Debug($"Rotated split to Vertical for window {hwnd}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in RotateSplitVertical", ex);
+        }
+    }
+
+    /// <summary>
+    /// Rotate the active window's parent BSP split to Horizontal (stacked, SUPER+Y).
+    /// </summary>
+    public void RotateSplitHorizontal()
+    {
+        try
+        {
+            var hwnd = NativeMethods.GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return;
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+            if (_tilingEngine.RotateSplitToDirection(ws, hwnd, BspNode.SplitDirection.Horizontal))
+            {
+                _tilingEngine.TileWorkspace(ws, animate: false);
+                Logger.Instance.Debug($"Rotated split to Horizontal for window {hwnd}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in RotateSplitHorizontal", ex);
+        }
+    }
+
+    /// <summary>
     /// Mirror all windows vertically (top↔bottom) in the active workspace.
     /// </summary>
     public void SwapVertical()

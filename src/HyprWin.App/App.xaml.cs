@@ -331,6 +331,8 @@ public partial class App : Application
         // Workspace mirror/flip
         _keyboardHook.RegisterKeybind(kb.SwapHorizontal, _dispatcher.SwapHorizontal);
         _keyboardHook.RegisterKeybind(kb.SwapVertical, _dispatcher.SwapVertical);
+        _keyboardHook.RegisterKeybind(kb.RotateSplitVertical, _dispatcher.RotateSplitVertical);
+        _keyboardHook.RegisterKeybind(kb.RotateSplitHorizontal, _dispatcher.RotateSplitHorizontal);
 
         // Workspaces
         _keyboardHook.RegisterKeybind(kb.Workspace1, () => _dispatcher.SwitchToWorkspace(0));
