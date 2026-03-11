@@ -785,13 +785,35 @@ public sealed class WindowDispatcher
     {
         try
         {
-            var psi = new ProcessStartInfo
+            // HyprWin runs elevated (requireAdministrator). Browsers and other apps
+            // detect an elevated parent and immediately exit if launched directly via
+            // ShellExecute, causing the "opens and closes instantly" effect.
+            // Routing URLs through explorer.exe (which always runs at medium integrity)
+            // correctly hands off to the default handler at normal privilege level.
+            bool isUrl = command.IndexOf("://", StringComparison.Ordinal) >= 0
+                      || command.EndsWith(":", StringComparison.Ordinal)
+                         && !command.Contains('\\') && !command.Contains('/');
+
+            ProcessStartInfo psi;
+            if (isUrl && string.IsNullOrWhiteSpace(args))
             {
-                FileName = command,
-                UseShellExecute = true,
-            };
-            if (!string.IsNullOrWhiteSpace(args))
-                psi.Arguments = args;
+                psi = new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = command,
+                    UseShellExecute = false,
+                };
+            }
+            else
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName = command,
+                    UseShellExecute = true,
+                };
+                if (!string.IsNullOrWhiteSpace(args))
+                    psi.Arguments = args;
+            }
 
             Process.Start(psi);
             Logger.Instance.Debug($"Launched program: {command} {args}".TrimEnd());
