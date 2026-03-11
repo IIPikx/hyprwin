@@ -54,6 +54,7 @@ resize_down    = "SUPER+CTRL+DOWN"
 launch_taskmgr = "CTRL+SHIFT+ESCAPE"  # Task Manager (explicit — LL hook blocks native shortcut)
 launch_settings = "SUPER+I"            # Windows Settings
 launch_color_picker = "SUPER+SHIFT+C"  # PowerToys Color Picker
+minimize_all = "SUPER+D"               # Minimize all windows on current workspace
 swap_horizontal = "SUPER+SHIFT+X"      # Mirror windows left↔right in workspace
 swap_vertical   = "SUPER+SHIFT+Y"      # Mirror windows top↔bottom in workspace
 rotate_split_vertical   = "SUPER+Y"    # Set active window's split to side-by-side

@@ -675,6 +675,35 @@ public sealed class WindowDispatcher
 
     // ──────────────── Launch Apps ────────────────
 
+    /// <summary>
+    /// Minimize all non-minimized windows on the current workspace (SUPER+D).
+    /// </summary>
+    public void MinimizeAll()
+    {
+        try
+        {
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+
+            foreach (var w in ws.Windows)
+            {
+                if (!w.IsMinimized && NativeMethods.IsWindow(w.Handle)
+                    && NativeMethods.IsWindowVisible(w.Handle))
+                {
+                    NativeMethods.ShowWindow(w.Handle, NativeMethods.SW_MINIMIZE);
+                    w.IsMinimized = true;
+                }
+            }
+
+            Logger.Instance.Debug($"MinimizeAll: minimized {ws.Windows.Count} window(s) on workspace {ws.Id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in MinimizeAll", ex);
+        }
+    }
+
     public void LaunchExplorer()
     {
         try

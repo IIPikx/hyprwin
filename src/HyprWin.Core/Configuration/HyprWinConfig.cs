@@ -73,6 +73,7 @@ public sealed class KeybindsConfig
     public string SwapVertical { get; init; } = "SUPER+SHIFT+Y";
     public string RotateSplitVertical { get; init; } = "SUPER+Y";
     public string RotateSplitHorizontal { get; init; } = "SUPER+X";
+    public string MinimizeAll { get; init; } = "SUPER+D";
 }
 
 public sealed class WindowsKeysToSuppressConfig

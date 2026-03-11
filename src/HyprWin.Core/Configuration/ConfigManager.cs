@@ -237,6 +237,7 @@ public sealed class ConfigManager : IDisposable
             SwapVertical = GetString(t, "swap_vertical", "SUPER+SHIFT+Y"),
             RotateSplitVertical = GetString(t, "rotate_split_vertical", "SUPER+X"),
             RotateSplitHorizontal = GetString(t, "rotate_split_horizontal", "SUPER+Y"),
+            MinimizeAll = GetString(t, "minimize_all", "SUPER+D"),
         };
     }
 
