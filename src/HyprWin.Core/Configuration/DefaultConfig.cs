@@ -185,8 +185,7 @@ inactive_indicator = "○"               # Symbol for inactive workspaces
 # Open default browser with SUPER+B
 [[launch]]
 shortcut = "SUPER+B"
-command  = "explorer.exe"
-args     = "https:"
+command  = "https://"
 
 # ─────────────────────── Window Rules ───────────────────────
 # Hyprland-style window rules. Each [[window_rule]] matches by process name,
