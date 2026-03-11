@@ -390,6 +390,10 @@ public sealed class WindowTracker : IDisposable
                 return false;
         }
 
+        // Skip Picture-in-Picture windows (browser PiP, media PiP, etc.)
+        if (IsPictureInPictureWindow(hwnd, exStyle))
+            return false;
+
         return true;
     }
 
@@ -423,6 +427,27 @@ public sealed class WindowTracker : IDisposable
         bool hasResize = (style & NativeMethods.WS_THICKFRAME)  != 0;
         if (isPopup && !hasResize)
             return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detects Picture-in-Picture windows by title pattern.
+    /// Browsers and media players use titles like "Picture in Picture" or "Picture-in-Picture".
+    /// </summary>
+    private static bool IsPictureInPictureWindow(IntPtr hwnd, uint exStyle)
+    {
+        string title = NativeMethods.GetWindowTitle(hwnd);
+        if (string.IsNullOrEmpty(title)) return false;
+
+        // Match common PiP title patterns (Chrome, Edge, Firefox, etc.)
+        if (title.Contains("Picture in Picture", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("Picture-in-Picture", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("Bild-im-Bild", StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.Instance.Debug($"PiP window excluded: [{hwnd}] {title}");
+            return true;
+        }
 
         return false;
     }

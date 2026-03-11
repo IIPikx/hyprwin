@@ -390,6 +390,7 @@ public sealed class WindowDispatcher
 
     /// <summary>
     /// Close the currently focused window.
+    /// Sends WM_CLOSE first; if the window survives, terminates the process.
     /// </summary>
     public void CloseWindow()
     {
@@ -398,8 +399,31 @@ public sealed class WindowDispatcher
             var hwnd = NativeMethods.GetForegroundWindow();
             if (hwnd == IntPtr.Zero) return;
 
+            // Capture process info before sending close
+            NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+
             NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd}");
+            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd} (pid={pid})");
+
+            // Check if the window survives WM_CLOSE and force-kill if needed
+            if (pid != 0)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(500);
+                    if (NativeMethods.IsWindow(hwnd) && NativeMethods.IsWindowVisible(hwnd))
+                    {
+                        try
+                        {
+                            var proc = Process.GetProcessById((int)pid);
+                            proc.Kill();
+                            Logger.Instance.Info($"Force-killed process {proc.ProcessName} (pid={pid}) — did not respond to WM_CLOSE");
+                        }
+                        catch (ArgumentException) { /* Process already exited */ }
+                        catch (Exception ex) { Logger.Instance.Error($"Error force-killing pid {pid}", ex); }
+                    }
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -489,12 +513,16 @@ public sealed class WindowDispatcher
                 NativeMethods.GetWindowRect(hwnd, out var rect);
                 window.SavedBounds = rect;
 
-                // Fill the entire monitor work area (or full bounds for true fullscreen)
+                // Fill the entire monitor bounds for true fullscreen (covers top bar)
                 var mon = _monitorManager.GetByIndex(monIdx);
                 if (mon != null)
                 {
-                    var fs = mon.EffectiveWorkArea;
+                    var fs = mon.Bounds;
                     TilingEngine.ApplyWindowPosition(hwnd, fs);
+                    // Place fullscreen window above the top bar
+                    NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 
+                        fs.Left, fs.Top, fs.Width, fs.Height,
+                        NativeMethods.SWP_NOACTIVATE);
                 }
 
                 Logger.Instance.Info($"Window {hwnd} set to fullscreen");
@@ -502,7 +530,10 @@ public sealed class WindowDispatcher
             else
             {
                 window.IsFullscreen = false;
-                // Re-add to tiling
+                // Restore from topmost and re-add to tiling
+                NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_NOTOPMOST,
+                    0, 0, 0, 0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
                 _tilingEngine.RebuildTree(ws);
                 _tilingEngine.TileWorkspace(ws);
                 Logger.Instance.Info($"Window {hwnd} exited fullscreen");
