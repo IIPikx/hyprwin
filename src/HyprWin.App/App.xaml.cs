@@ -32,6 +32,10 @@ public partial class App : Application
     private SystemInfoService _sysInfoService = null!;
     private TrayIconService _trayIconService = null!;
 
+    // Set to true as soon as shutdown begins — guards async BeginInvoke handlers
+    // from touching windows that are already in the process of closing.
+    private volatile bool _shuttingDown = false;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -183,6 +187,32 @@ public partial class App : Application
                 _tilingEngine.TileWorkspace(ws);
             };
 
+            // 11b. Update top bar workspace indicators whenever the active workspace changes.
+            // WorkspaceSwitched fires from SwitchWorkspace (same UI thread), so Invoke is safe.
+            // We use BeginInvoke(Background) so the indicator update runs after the tiling
+            // paint has settled, avoiding a one-frame flash of the old indicator.
+            _workspaceManager.WorkspaceSwitched += (monIdx, _) =>
+            {
+                if (_shuttingDown) return;
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+                {
+                    if (_shuttingDown) return;
+
+                    foreach (var bar in _topBarWindows)
+                        bar.UpdateWorkspaceIndicators();
+
+                    // Extra non-animated retile pass: ensures any window that was moved
+                    // off-screen (-32000) gets a synchronous SWP_SHOWWINDOW reposition
+                    // in case the async pass from SwitchWorkspace hasn't settled yet.
+                    var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+                    if (ws != null)
+                    {
+                        _tilingEngine.SyncTree(ws);
+                        _tilingEngine.TileWorkspace(ws, animate: false);
+                    }
+                });
+            };
+
             // 12. Wire up window tracker events
             _windowTracker.WindowAdded += OnWindowAdded;
             _windowTracker.WindowRemoved += OnWindowRemoved;
@@ -243,31 +273,39 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Signal all async handlers to bail out immediately so no BeginInvoke
+        // callbacks touch windows that are already in the process of closing.
+        _shuttingDown = true;
+
         Logger.Instance.Info("HyprWin shutting down...");
 
         try
         {
-            // 1. Stop keyboard hook first (release all hotkeys)
+            // 1. Close top bar windows FIRST — they must stop receiving events
+            //    before the services they depend on are disposed.
+            foreach (var bar in _topBarWindows)
+            {
+                try { bar.Close(); } catch { }
+            }
+
+            // 2. Stop keyboard hook (release all hotkeys)
             _keyboardHook?.Dispose();
 
-            // 2. Stop border renderer
+            // 3. Stop border renderer
             _borderRenderer?.Dispose();
 
-            // 3. Restore all managed windows to their original positions & size
+            // 4. Restore all managed windows to their original positions & size
             _windowTracker?.RestoreAllWindows();
 
-            // 4. Restore native taskbar (SW_SHOW + WM_SETTINGCHANGE, no Explorer restart)
+            // 5. Restore native taskbar (SW_SHOW + WM_SETTINGCHANGE, no Explorer restart)
             try { _taskbarManager?.Dispose(); } catch { }
 
-            // 5. Clean up remaining services
+            // 6. Clean up remaining services
             _sysInfoService?.Dispose();
             _trayIconService?.Dispose();
             _windowTracker?.Dispose();
             _animationEngine?.Dispose();
             _configManager?.Dispose();
-
-            foreach (var bar in _topBarWindows)
-                bar.Close();
 
             _trayIcon?.Dispose();
         }

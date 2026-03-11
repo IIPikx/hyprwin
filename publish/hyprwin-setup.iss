@@ -54,14 +54,13 @@ Name: "german";  MessagesFile: "compiler:Languages\German.isl"
 
 [Tasks]
 Name: "desktopicon";  Description: "{cm:CreateDesktopIcon}";  GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart";    Description: "Start {#MyAppName} automatically with Windows"; GroupDescription: "System Integration:"; Flags: checked
+Name: "autostart";    Description: "Start {#MyAppName} automatically with Windows"; GroupDescription: "System Integration:"
 
 [Files]
-; Single-file publish output — just the one .exe (and .pdb if present)
-Source: "..\publish\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\publish\bin\*.pdb";           DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; All published files (folder publish — required for WPF native DLLs)
+Source: "..\publish\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Default config template
-Source: "..\publish\hyprwin.toml";        DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+Source: "..\publish\hyprwin.toml"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
 [Icons]
 Name: "{group}\{#MyAppName}";               Filename: "{app}\{#MyAppExeName}"
@@ -84,6 +83,32 @@ Filename: "taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: runhidden
 Type: filesandordirs; Name: "{userappdata}\HyprWin\logs"
 
 [Code]
+// ── Defender Exclusion Helpers ──
+
+// Add install directory to Windows Defender exclusions
+procedure AddDefenderExclusion(const Path: String);
+var
+  ResultCode: Integer;
+begin
+  Exec('powershell.exe',
+    '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "' +
+    'Add-MpPreference -ExclusionPath ' + Chr(39) + Path + Chr(39) +
+    ' -ErrorAction SilentlyContinue"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+// Remove install directory from Windows Defender exclusions
+procedure RemoveDefenderExclusion(const Path: String);
+var
+  ResultCode: Integer;
+begin
+  Exec('powershell.exe',
+    '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "' +
+    'Remove-MpPreference -ExclusionPath ' + Chr(39) + Path + Chr(39) +
+    ' -ErrorAction SilentlyContinue"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 // Kill any running HyprWin instance before install/upgrade
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
@@ -91,4 +116,18 @@ var
 begin
   Exec('taskkill.exe', '/F /IM {#MyAppExeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
+end;
+
+// After installation: add Defender exclusion for the install directory
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    AddDefenderExclusion(ExpandConstant('{app}'));
+end;
+
+// After uninstall: remove the Defender exclusion
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+    RemoveDefenderExclusion(ExpandConstant('{app}'));
 end;

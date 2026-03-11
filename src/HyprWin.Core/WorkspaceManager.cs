@@ -149,7 +149,20 @@ public sealed class WorkspaceManager
 
         _activeWorkspaceIndex[monitorIndex] = workspaceIndex;
 
-        // Retile the new workspace (this positions windows correctly on-screen)
+        // Restore any windows that were hidden via SW_HIDE (e.g. by MoveWindowToWorkspace).
+        // Off-screen windows (-32000) are already visible and will be repositioned by TileWorkspace.
+        // Windows hidden via SW_HIDE must be explicitly shown first, otherwise TileWorkspace
+        // positions them correctly but they remain invisible.
+        foreach (var w in newWs.Windows)
+        {
+            if (!w.IsMinimized && NativeMethods.IsWindow(w.Handle)
+                && !NativeMethods.IsWindowVisible(w.Handle))
+            {
+                NativeMethods.ShowWindow(w.Handle, NativeMethods.SW_SHOWNOACTIVATE);
+            }
+        }
+
+        // Retile the new workspace (positions all windows on-screen via SWP_SHOWWINDOW)
         RetileRequested?.Invoke(newWs);
 
         // Focus the last focused window on the new workspace
@@ -271,10 +284,16 @@ public sealed class WorkspaceManager
         window.WorkspaceId = targetWorkspaceIndex;
         targetWs.Windows.Add(window);
 
-        // If moving to a non-active workspace, hide the window
+        // If moving to a non-active workspace, move off-screen (same as SwitchWorkspace).
+        // SW_HIDE is intentionally avoided — some apps misbehave when hidden
+        // (lose focus state, drop cached resources, etc.).
+        // The window is restored to the correct position when the workspace is switched to.
         if (GetActiveWorkspaceIndex(sourceMonitor) != targetWorkspaceIndex)
         {
-            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_HIDE);
+            NativeMethods.GetWindowRect(hwnd, out var offRect);
+            NativeMethods.SetWindowPos(hwnd, IntPtr.Zero,
+                -32000, -32000, offRect.Width, offRect.Height,
+                NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOSENDCHANGING);
         }
 
         // Retile both workspaces if they're active

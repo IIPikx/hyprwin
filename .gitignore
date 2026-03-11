@@ -5,6 +5,9 @@ obj/
 # Publish output
 publish/
 
+# Installer output (compiled EXE — not checked in)
+installer/
+
 # Website
 website/
 

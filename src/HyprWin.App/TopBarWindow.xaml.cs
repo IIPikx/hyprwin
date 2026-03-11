@@ -432,7 +432,11 @@ public partial class TopBarWindow : Window
         var menu = new ContextMenu();
 
         var exitItem = new MenuItem { Header = "HyprWin schließen" };
-        exitItem.Click += (_, _) => Application.Current.Shutdown();
+        // Use BeginInvoke so the context menu fully closes before Shutdown() runs,
+        // preventing "Cannot set Visibility while a Window is closing" races.
+        exitItem.Click += (_, _) => Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            () => Application.Current.Shutdown());
 
         menu.Items.Add(exitItem);
         menu.IsOpen = true;

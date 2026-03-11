@@ -131,6 +131,11 @@ public sealed class WindowDispatcher
 
             NativeMethods.ForceForegroundWindow(best.Handle);
             _workspaceManager.UpdateFocus(best.Handle);
+
+            // Warp cursor to center of newly focused window (Hyprland-style)
+            var bestRect = GetVisualRect(best.Handle);
+            NativeMethods.SetCursorPos(bestRect.CenterX, bestRect.CenterY);
+
             Logger.Instance.Debug($"Focus moved to: {best}");
         }
         catch (Exception ex)
@@ -596,6 +601,8 @@ public sealed class WindowDispatcher
         else
         {
             _workspaceManager.MoveWindowToWorkspace(hwnd, workspaceIndex);
+            // Automatically follow the window to its new workspace
+            _workspaceManager.SwitchWorkspace(sourceMonIdx, workspaceIndex);
         }
 
         NativeMethods.ForceForegroundWindow(hwnd);
