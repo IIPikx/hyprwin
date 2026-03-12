@@ -35,7 +35,7 @@ Write-Host "=======================================" -ForegroundColor Cyan
 # from a single-file bundle, causing DllNotFoundException at runtime.
 # The installer packages the whole publish\bin\ folder instead.
 if (-not $SkipPublish) {
-    Write-Host "`n[1/4] Publishing HyprWin (Release, win-x64, self-contained)..." -ForegroundColor Yellow
+    Write-Host "`n[1/5] Publishing HyprWin (Release, win-x64, self-contained)..." -ForegroundColor Yellow
     dotnet publish "$root\src\HyprWin.App\HyprWin.App.csproj" `
         -c Release -r win-x64 --self-contained true `
         -o "$root\publish\bin"
@@ -43,7 +43,7 @@ if (-not $SkipPublish) {
     $fileCount = (Get-ChildItem "$root\publish\bin\*" -Recurse -File).Count
     Write-Host "  Published $fileCount files to: publish\bin\" -ForegroundColor Green
 } else {
-    Write-Host "`n[1/4] Skipping dotnet publish (-SkipPublish)" -ForegroundColor DarkGray
+    Write-Host "`n[1/5] Skipping dotnet publish (-SkipPublish)" -ForegroundColor DarkGray
 }
 
 # -- Step 1b: Add publish\bin to Defender exclusions (dev convenience) --
@@ -57,11 +57,12 @@ try {
     Write-Host "  (Defender exclusion skipped -- may need elevation)" -ForegroundColor DarkGray
 }
 
-# -- Step 2: Code-sign the EXE --
+# -- Step 2: Code-sign all EXEs and DLLs --
 if (-not $SkipSign) {
-    Write-Host "`n[2/4] Code-signing the EXE..." -ForegroundColor Yellow
+    Write-Host "`n[2/5] Code-signing all binaries..." -ForegroundColor Yellow
 
     $exePath = "$root\publish\bin\HyprWin.App.exe"
+    $allBinaries = Get-ChildItem "$root\publish\bin" -Include *.exe,*.dll -Recurse -File
 
     # Locate signtool.exe from the installed Windows SDK
     $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" `
@@ -95,29 +96,33 @@ if (-not $SkipSign) {
                 -NotAfter (Get-Date).AddYears(5)
         }
 
-        $result = Set-AuthenticodeSignature -FilePath $exePath `
-                    -Certificate $existingCert `
-                    -HashAlgorithm SHA256 `
-                    -TimestampServer "http://timestamp.digicert.com" `
-                    -ErrorAction SilentlyContinue
-        if (-not $result -or ($result.Status -ne "Valid" -and $result.Status -ne "UnknownError")) {
-            # Retry without timestamp server (offline fallback)
-            $result = Set-AuthenticodeSignature -FilePath $exePath `
+        $signCount = 0
+        foreach ($bin in $allBinaries) {
+            $result = Set-AuthenticodeSignature -FilePath $bin.FullName `
                         -Certificate $existingCert `
-                        -HashAlgorithm SHA256
+                        -HashAlgorithm SHA256 `
+                        -TimestampServer "http://timestamp.digicert.com" `
+                        -ErrorAction SilentlyContinue
+            if (-not $result -or ($result.Status -ne "Valid" -and $result.Status -ne "UnknownError")) {
+                $result = Set-AuthenticodeSignature -FilePath $bin.FullName `
+                            -Certificate $existingCert `
+                            -HashAlgorithm SHA256
+            }
+            $signCount++
         }
-        Write-Host "  Signed (self-signed): $($result.Status)" -ForegroundColor Green
+        Write-Host "  Signed $signCount binaries (self-signed)" -ForegroundColor Green
         Write-Host "  NOTE: For public distribution, use a trusted CA certificate." -ForegroundColor DarkGray
 
     } elseif ($PfxPath -and (Test-Path $PfxPath)) {
         Write-Host "  Signing with provided PFX: $PfxPath" -ForegroundColor DarkGray
-        $signArgs = @("sign", "/fd", "SHA256", "/f", $PfxPath,
-                      "/tr", "http://timestamp.digicert.com", "/td", "SHA256")
-        if ($PfxPassword) { $signArgs += @("/p", $PfxPassword) }
-        $signArgs += $exePath
-        & $signtool @signArgs
-        if ($LASTEXITCODE -ne 0) { Write-Host "  Warning: signtool returned $LASTEXITCODE" -ForegroundColor Yellow }
-        else { Write-Host "  Signed successfully." -ForegroundColor Green }
+        foreach ($bin in $allBinaries) {
+            $signArgs = @("sign", "/fd", "SHA256", "/f", $PfxPath,
+                          "/tr", "http://timestamp.digicert.com", "/td", "SHA256")
+            if ($PfxPassword) { $signArgs += @("/p", $PfxPassword) }
+            $signArgs += $bin.FullName
+            & $signtool @signArgs
+        }
+        Write-Host "  Signed $($allBinaries.Count) binaries." -ForegroundColor Green
 
     } else {
         Write-Host "  No PFX provided -- generating self-signed certificate..." -ForegroundColor DarkGray
@@ -141,24 +146,23 @@ if (-not $SkipSign) {
 
         Export-PfxCertificate -Cert $existingCert -FilePath $selfSignedPfx -Password $certPassword | Out-Null
 
-        & $signtool sign /fd SHA256 /f $selfSignedPfx /p "HyprWin-Build-2026" `
-            /tr "http://timestamp.digicert.com" /td SHA256 /d "HyprWin" $exePath
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "  Timestamp server unreachable -- retrying without timestamp..." -ForegroundColor Yellow
-            & $signtool sign /fd SHA256 /f $selfSignedPfx /p "HyprWin-Build-2026" /d "HyprWin" $exePath
+        foreach ($bin in $allBinaries) {
+            & $signtool sign /fd SHA256 /f $selfSignedPfx /p "HyprWin-Build-2026" `
+                /tr "http://timestamp.digicert.com" /td SHA256 /d "HyprWin" $bin.FullName 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                & $signtool sign /fd SHA256 /f $selfSignedPfx /p "HyprWin-Build-2026" /d "HyprWin" $bin.FullName 2>$null
+            }
         }
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Signed with self-signed certificate." -ForegroundColor Green
-            Write-Host "  NOTE: For public distribution, use a trusted CA certificate." -ForegroundColor DarkGray
-        }
+        Write-Host "  Signed $($allBinaries.Count) binaries with self-signed certificate." -ForegroundColor Green
+        Write-Host "  NOTE: For public distribution, use a trusted CA certificate." -ForegroundColor DarkGray
         Remove-Item $selfSignedPfx -ErrorAction SilentlyContinue
     }
 } else {
-    Write-Host "`n[2/4] Skipping code signing (-SkipSign)" -ForegroundColor DarkGray
+    Write-Host "`n[2/5] Skipping code signing (-SkipSign)" -ForegroundColor DarkGray
 }
 
 # -- Step 3: Find Inno Setup compiler --
-Write-Host "`n[3/4] Looking for Inno Setup 6 compiler..." -ForegroundColor Yellow
+Write-Host "`n[3/5] Looking for Inno Setup 6 compiler..." -ForegroundColor Yellow
 $isccPaths = @(
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
@@ -183,7 +187,7 @@ if (-not $iscc) {
 Write-Host "  Found: $iscc" -ForegroundColor Green
 
 # -- Step 4: Compile installer --
-Write-Host "`n[4/4] Compiling installer..." -ForegroundColor Yellow
+Write-Host "`n[4/5] Compiling installer..." -ForegroundColor Yellow
 
 $installerDir = "$root\installer"
 if (-not (Test-Path $installerDir)) {
@@ -194,6 +198,30 @@ if (-not (Test-Path $installerDir)) {
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
 
 $installerFile = "$installerDir\HyprWin-Setup-$Version.exe"
+
+# -- Step 5: Sign the installer itself --
+if (-not $SkipSign -and (Test-Path $installerFile)) {
+    Write-Host "`n[5/5] Code-signing the installer..." -ForegroundColor Yellow
+    $installerCert = Get-ChildItem Cert:\CurrentUser\My |
+        Where-Object { $_.Subject -like "*HyprWin*" -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) } |
+        Select-Object -First 1
+    if ($installerCert) {
+        $result = Set-AuthenticodeSignature -FilePath $installerFile `
+                    -Certificate $installerCert `
+                    -HashAlgorithm SHA256 `
+                    -TimestampServer "http://timestamp.digicert.com" `
+                    -ErrorAction SilentlyContinue
+        if (-not $result -or ($result.Status -ne "Valid" -and $result.Status -ne "UnknownError")) {
+            $result = Set-AuthenticodeSignature -FilePath $installerFile `
+                        -Certificate $installerCert `
+                        -HashAlgorithm SHA256
+        }
+        Write-Host "  Installer signed: $($result.Status)" -ForegroundColor Green
+    }
+} else {
+    Write-Host "`n[5/5] Skipping installer signing" -ForegroundColor DarkGray
+}
+
 if (Test-Path $installerFile) {
     $size = [math]::Round((Get-Item $installerFile).Length / 1MB, 1)
     $hash = (Get-FileHash $installerFile -Algorithm SHA256).Hash

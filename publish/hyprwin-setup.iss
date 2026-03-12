@@ -59,8 +59,8 @@ Name: "autostart";    Description: "Start {#MyAppName} automatically with Window
 [Files]
 ; All published files (folder publish — required for WPF native DLLs)
 Source: "..\publish\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Default config template
-Source: "..\publish\hyprwin.toml"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+; Default config template (skip if not present)
+Source: "..\publish\hyprwin.toml"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\{#MyAppName}";               Filename: "{app}\{#MyAppExeName}"
