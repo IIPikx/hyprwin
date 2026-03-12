@@ -211,5 +211,3 @@ src/
 ```
 
 ---
-
-*HyprWin is inspired by [Hyprland](https://hyprland.org/) but is an independent project with no affiliation.*
