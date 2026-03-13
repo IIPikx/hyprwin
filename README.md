@@ -12,12 +12,26 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 - **Auto-Float** — popups, dialogs, and fullscreen windows are automatically floated
 - **Window Rules** — Hyprland-style `windowrule` for per-app behavior (float, opacity, workspace, size, position)
 
+### Robust Window Closing (SUPER+Q)
+- **Proactive BSP Removal** — window is immediately removed from the tiling tree before `WM_CLOSE` is sent, eliminating "ghost node" bugs and layout glitches
+- **Smart Escalation** — only force-kills processes that are truly hung (`IsHungAppWindow`), never kills apps showing save dialogs or confirmation prompts
+- **Auto Re-Integration** — if a window survives the close (user cancels a dialog), it is automatically re-discovered and re-tiled when it regains focus
+
 ### Gaming Mode
 - **Auto-Detection** — automatically detects fullscreen games and activates performance mode
 - **Suspend Animations** — disables window animations during gaming to eliminate micro-stutters
 - **Suspend Border** — hides the border overlay to reduce GPU overhead
 - **Reduced Polling** — lowers system info polling frequency from 2s to 10s during gaming
 - **Custom Game List** — optionally specify process names that should always trigger gaming mode
+
+### Laptop Support
+- **Touchpad Gestures** — 3-finger (or 4-finger) swipe gestures for workspace switching and window management via Windows Precision Touchpad raw HID input
+  - Swipe left/right → switch workspaces
+  - Swipe down → minimize all windows
+  - Configurable finger count and gesture-to-action mapping
+  - Automatic detection — works if a Precision Touchpad is present, gracefully disabled otherwise
+- **Battery Module** — displays battery percentage, charging status, and dynamic icons in the Top Bar and System Menu
+- **Brightness Control** — adjust monitor brightness directly from the System Menu (DDC/CI monitors)
 
 ### Top Bar (Taskbar Replacement)
 - **Fully Customizable** — configurable height, position (top/bottom), font, font size, colors
@@ -85,7 +99,7 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 ### Window Actions
 | Shortcut | Action |
 |----------|--------|
-| `SUPER + Q` | Close focused window |
+| `SUPER + Q` | Close focused window (proactive BSP removal) |
 | `SUPER + T` | Toggle floating |
 | `SUPER + F` | Toggle fullscreen |
 | `SUPER + D` | Minimize all windows on workspace |
@@ -115,6 +129,13 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 | `SUPER + SHIFT + C` | PowerToys Color Picker |
 | `CTRL + SHIFT + ESC` | Task Manager |
 
+### Touchpad Gestures (Laptops)
+| Gesture | Default Action |
+|---------|---------------|
+| 3-finger swipe left | Switch to previous workspace |
+| 3-finger swipe right | Switch to next workspace |
+| 3-finger swipe down | Minimize all windows |
+
 ### System
 | Shortcut | Action |
 |----------|--------|
@@ -138,11 +159,26 @@ The config file is auto-generated on first run with inline documentation. Change
 [theme]             # Colors (Catppuccin Mocha default)
 [top_bar]           # Bar height, position, font, modules
 [gaming]            # Gaming mode: auto-detect, suspend animations/border
+[touchpad]          # Touchpad gestures: finger count, swipe actions
 [exclude]           # Process/class exclusion lists
 [[launch]]          # Custom launch shortcuts
 [[window_rule]]     # Per-window behavior rules
 [[bezier]]          # Custom easing curves
 ```
+
+### Touchpad Configuration
+
+```toml
+[touchpad]
+enabled     = true              # Enable touchpad gesture detection
+fingers     = 3                 # Finger count for swipe gestures (3 or 4)
+swipe_left  = "workspace_prev"  # Switch to previous workspace
+swipe_right = "workspace_next"  # Switch to next workspace
+swipe_up    = "none"            # No action
+swipe_down  = "minimize_all"    # Minimize all windows on current workspace
+```
+
+Available actions: `workspace_prev`, `workspace_next`, `minimize_all`, `none`
 
 ## Building
 
@@ -180,11 +216,12 @@ src/
     ├── TilingEngine         # BSP tree layout with DeferWindowPos batching
     ├── WorkspaceManager     # Virtual workspace management
     ├── WindowTracker        # Win32 event hooks for window lifecycle
-    ├── WindowDispatcher     # Keybind action handler
+    ├── WindowDispatcher     # Keybind action handler (incl. robust close)
     ├── KeyboardHook         # WH_KEYBOARD_LL global hook
     ├── AnimationEngine      # Frame-synced window animations
     ├── BorderRenderer       # GPU-accelerated focus border
     ├── SystemInfoService    # Hardware metrics, media, battery, brightness
+    ├── TouchpadGestureService # Raw Input HID touchpad gesture detection
     ├── TaskbarManager       # Native taskbar hide/show
     ├── MonitorManager       # Multi-monitor enumeration
     └── Configuration/       # TOML config parsing with hot-reload
@@ -193,11 +230,13 @@ src/
 ## Performance Notes
 
 - **DeferWindowPos** — all tiling operations use `BeginDeferWindowPos`/`EndDeferWindowPos` to batch multiple `SetWindowPos` calls into a single screen update
+- **Proactive Close** — `SUPER+Q` removes the window from the BSP tree before sending `WM_CLOSE`, preventing ghost-node tiling bugs
 - **Gaming Mode** — automatically reduces overhead when fullscreen games are detected
 - **SWP_ASYNCWINDOWPOS** — non-blocking window positioning (Komorebi pattern)
 - **Frozen Brushes** — all WPF brushes are frozen for cross-thread safety and GC reduction
 - **Dictionary Lookups** — O(1) window handle lookups instead of LINQ queries in hot paths
 - **WinEvent Hooks** — zero-polling architecture for window tracking (event-driven, not timer-based)
+- **Raw Input Touchpad** — HID-level touchpad parsing with zero cursor interference
 
 ## Credits
 

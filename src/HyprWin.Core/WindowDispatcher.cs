@@ -395,7 +395,10 @@ public sealed class WindowDispatcher
 
     /// <summary>
     /// Close the currently focused window.
-    /// Sends WM_CLOSE first; if the window survives, terminates the process.
+    /// Proactively removes the window from the BSP tree so tiling is immediately
+    /// clean, then sends WM_CLOSE. If the window survives (save dialog, etc.),
+    /// the foreground hook's late-discovery code will re-add it automatically.
+    /// Only force-kills if the window is truly hung (IsHungAppWindow).
     /// </summary>
     public void CloseWindow()
     {
@@ -404,29 +407,39 @@ public sealed class WindowDispatcher
             var hwnd = NativeMethods.GetForegroundWindow();
             if (hwnd == IntPtr.Zero) return;
 
-            // Capture process info before sending close
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
 
-            NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd} (pid={pid})");
+            // Proactive removal: take the window out of the BSP tree and workspace
+            // BEFORE sending WM_CLOSE. This eliminates "ghost node" bugs where the
+            // closing window's leaf persists in the tree during the close animation
+            // or while a save dialog is shown.
+            _windowTracker.UntrackWindow(hwnd);
+            _workspaceManager.RemoveWindow(hwnd);
 
-            // Check if the window survives WM_CLOSE and force-kill if needed
+            NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd} (pid={pid}), proactively removed from tiling");
+
             if (pid != 0)
             {
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(500);
-                    if (NativeMethods.IsWindow(hwnd) && NativeMethods.IsWindowVisible(hwnd))
+                    await Task.Delay(2000);
+                    if (!NativeMethods.IsWindow(hwnd)) return;
+
+                    // Only force-kill if the window is truly not responding.
+                    // If it's alive but responsive (e.g. showing a save dialog),
+                    // leave it alone — user is interacting with it, and it will
+                    // be re-discovered by the foreground hook when it gains focus.
+                    if (!NativeMethods.IsHungAppWindow(hwnd)) return;
+
+                    try
                     {
-                        try
-                        {
-                            var proc = Process.GetProcessById((int)pid);
-                            proc.Kill();
-                            Logger.Instance.Info($"Force-killed process {proc.ProcessName} (pid={pid}) — did not respond to WM_CLOSE");
-                        }
-                        catch (ArgumentException) { /* Process already exited */ }
-                        catch (Exception ex) { Logger.Instance.Error($"Error force-killing pid {pid}", ex); }
+                        using var proc = Process.GetProcessById((int)pid);
+                        proc.Kill();
+                        Logger.Instance.Info($"Force-killed hung process {proc.ProcessName} (pid={pid})");
                     }
+                    catch (ArgumentException) { /* already exited */ }
+                    catch (Exception ex) { Logger.Instance.Error($"Error force-killing pid {pid}", ex); }
                 });
             }
         }

@@ -582,6 +582,92 @@ public static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
 
+    // Window close helpers
+    public const uint WM_SYSCOMMAND = 0x0112;
+    public static readonly IntPtr SC_CLOSE = new(0xF060);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsHungAppWindow(IntPtr hWnd);
+
+    // Raw Input (touchpad gesture support)
+    public const int WM_INPUT = 0x00FF;
+    public const uint RID_INPUT = 0x10000003;
+    public const uint RIM_TYPEHID = 2;
+    public const uint RIDEV_INPUTSINK = 0x00000100;
+    public const uint RIDI_PREPARSEDDATA = 0x20000005;
+
+    // HID usage constants for Precision Touchpad
+    public const ushort HID_USAGE_PAGE_DIGITIZER = 0x0D;
+    public const ushort HID_USAGE_DIGITIZER_TOUCH_PAD = 0x05;
+    public const ushort HID_USAGE_DIGITIZER_CONTACT_COUNT = 0x54;
+    public const ushort HID_USAGE_PAGE_GENERIC = 0x01;
+    public const ushort HID_USAGE_GENERIC_X = 0x30;
+    public const ushort HID_USAGE_GENERIC_Y = 0x31;
+    public const int HIDP_STATUS_SUCCESS = 0x00110000;
+    public const int HidP_Input = 0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTDEVICE
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr WindowHandle;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTHEADER
+    {
+        public uint dwType;
+        public uint dwSize;
+        public IntPtr hDevice;
+        public IntPtr wParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct HIDP_CAPS
+    {
+        public ushort Usage;
+        public ushort UsagePage;
+        public ushort InputReportByteLength;
+        public ushort OutputReportByteLength;
+        public ushort FeatureReportByteLength;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+        public ushort[] Reserved;
+        public ushort NumberLinkCollectionNodes;
+        public ushort NumberInputButtonCaps;
+        public ushort NumberInputValueCaps;
+        public ushort NumberInputDataIndices;
+        public ushort NumberOutputButtonCaps;
+        public ushort NumberOutputValueCaps;
+        public ushort NumberOutputDataIndices;
+        public ushort NumberFeatureButtonCaps;
+        public ushort NumberFeatureValueCaps;
+        public ushort NumberFeatureDataIndices;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool RegisterRawInputDevices(
+        RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetRawInputData(
+        IntPtr hRawInput, uint uiCommand, IntPtr pData, ref uint pcbSize, uint cbSizeHeader);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetRawInputDeviceInfo(
+        IntPtr hDevice, uint uiCommand, IntPtr pData, ref uint pcbSize);
+
+    [DllImport("hid.dll")]
+    public static extern int HidP_GetCaps(IntPtr PreparsedData, out HIDP_CAPS Capabilities);
+
+    [DllImport("hid.dll")]
+    public static extern int HidP_GetUsageValue(
+        int ReportType, ushort UsagePage, ushort LinkCollection, ushort Usage,
+        out uint UsageValue, IntPtr PreparsedData, byte[] Report, uint ReportLength);
+
     // Keyboard simulation
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);

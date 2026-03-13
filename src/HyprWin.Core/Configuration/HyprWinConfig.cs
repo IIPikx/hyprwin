@@ -16,6 +16,7 @@ public sealed class HyprWinConfig
     public GeneralConfig General { get; init; } = new();
     public ExcludeConfig Exclude { get; init; } = new();
     public GamingConfig Gaming { get; init; } = new();
+    public TouchpadConfig Touchpad { get; init; } = new();
 
     /// <summary>Custom program launch shortcuts defined via [[launch]] entries.</summary>
     public List<LaunchEntry> Launch { get; init; } = new();
@@ -244,7 +245,25 @@ public sealed class GamingConfig
     public List<string> GameProcesses { get; init; } = new();
 }
 
- public sealed class ExcludeConfig
+/// <summary>
+/// Touchpad gesture configuration for laptops with Windows Precision Touchpads.
+/// </summary>
+public sealed class TouchpadConfig
+{
+    public bool Enabled { get; init; } = true;
+    /// <summary>Number of fingers required for swipe gestures (3 or 4).</summary>
+    public int Fingers { get; init; } = 3;
+    /// <summary>Action for swipe left: workspace_prev, workspace_next, minimize_all, none.</summary>
+    public string SwipeLeft { get; init; } = "workspace_prev";
+    /// <summary>Action for swipe right.</summary>
+    public string SwipeRight { get; init; } = "workspace_next";
+    /// <summary>Action for swipe up.</summary>
+    public string SwipeUp { get; init; } = "none";
+    /// <summary>Action for swipe down.</summary>
+    public string SwipeDown { get; init; } = "minimize_all";
+}
+
+public sealed class ExcludeConfig
 {
     /// <summary>Process names (without .exe) to exclude from management.</summary>
     public List<string> ProcessNames { get; init; } = new() { "Taskmgr", "3CXDesktopApp", "mstsc", "msrdc" };

@@ -233,6 +233,18 @@ reduced_polling_ms  = 10000    # System info poll interval during gaming (ms)
 normal_polling_ms   = 2000     # Normal system info poll interval (ms)
 # game_processes = ["csgo", "Overwatch", "valorant"]  # Force-detect these as games
 
+# ─────────────────────── Touchpad Gestures ───────────────────────
+# Multi-finger swipe gestures for laptops with Windows Precision Touchpads.
+# HyprWin reads raw HID data to detect swipes — no Windows gesture
+# settings need to be changed.
+[touchpad]
+enabled     = true              # Enable touchpad gesture detection
+fingers     = 3                 # Finger count for swipe gestures (3 or 4)
+swipe_left  = "workspace_prev"  # Switch to previous workspace
+swipe_right = "workspace_next"  # Switch to next workspace
+swipe_up    = "none"            # No action (use "overview" if you want)
+swipe_down  = "minimize_all"    # Minimize all windows on current workspace
+
 # ─────────────────────── Exclusions ───────────────────────
 # Programs and window classes to exclude from tiling/management.
 # These windows will not be moved, resized, or tiled by HyprWin.

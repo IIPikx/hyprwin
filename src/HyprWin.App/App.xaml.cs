@@ -31,6 +31,7 @@ public partial class App : Application
     private readonly List<TopBarWindow> _topBarWindows = new();
     private SystemInfoService _sysInfoService = null!;
     private TrayIconService _trayIconService = null!;
+    private TouchpadGestureService? _touchpadService;
 
     // Set to true as soon as shutdown begins — guards async BeginInvoke handlers
     // from touching windows that are already in the process of closing.
@@ -264,6 +265,24 @@ public partial class App : Application
             if (config.Gaming.Enabled)
                 StartGamingDetection(config);
 
+            // 18c. Start touchpad gesture service
+            if (config.Touchpad.Enabled)
+            {
+                try
+                {
+                    _touchpadService = new TouchpadGestureService();
+                    _touchpadService.RequiredContacts = Math.Clamp(config.Touchpad.Fingers, 2, 5);
+                    _touchpadService.SwipeDetected += dir => HandleTouchpadSwipe(dir, config);
+                    _touchpadService.Start();
+                    if (_touchpadService.IsAvailable)
+                        Logger.Instance.Info("Touchpad gesture support active");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Warn($"Touchpad gesture service failed: {ex.Message}");
+                }
+            }
+
             // 19. Start config file watching
             _configManager.ConfigChanged += OnConfigChanged;
             _configManager.StartWatching();
@@ -309,6 +328,7 @@ public partial class App : Application
             try { _taskbarManager?.Dispose(); } catch { }
 
             // 6. Clean up remaining services
+            _touchpadService?.Dispose();
             _sysInfoService?.Dispose();
             _trayIconService?.Dispose();
             _windowTracker?.Dispose();
@@ -781,6 +801,56 @@ public partial class App : Application
             return proc.ProcessName;
         }
         catch { return ""; }
+    }
+
+    // ──────────────── Touchpad Gestures ────────────────
+
+    private void HandleTouchpadSwipe(SwipeDirection direction, HyprWin.Core.Configuration.HyprWinConfig config)
+    {
+        if (_shuttingDown) return;
+
+        string action = direction switch
+        {
+            SwipeDirection.Left => config.Touchpad.SwipeLeft,
+            SwipeDirection.Right => config.Touchpad.SwipeRight,
+            SwipeDirection.Up => config.Touchpad.SwipeUp,
+            SwipeDirection.Down => config.Touchpad.SwipeDown,
+            _ => "none",
+        };
+
+        if (string.IsNullOrEmpty(action) || action == "none") return;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+                int currentWs = _workspaceManager.GetActiveWorkspaceIndex(monIdx);
+
+                switch (action)
+                {
+                    case "workspace_prev":
+                        int prev = currentWs - 1;
+                        if (prev >= 0) _dispatcher.SwitchToWorkspace(prev);
+                        break;
+
+                    case "workspace_next":
+                        int next = currentWs + 1;
+                        _dispatcher.SwitchToWorkspace(next);
+                        break;
+
+                    case "minimize_all":
+                        _dispatcher.MinimizeAll();
+                        break;
+                }
+
+                Logger.Instance.Debug($"Touchpad swipe {direction} → {action}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Debug($"Touchpad swipe handler error: {ex.Message}");
+            }
+        });
     }
 
     // ──────────────── Bezier Curves & Window Rules ────────────────

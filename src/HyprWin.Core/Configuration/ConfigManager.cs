@@ -178,6 +178,7 @@ public sealed class ConfigManager : IDisposable
             TopBar = ParseTopBar(table),
             Exclude = ParseExclude(table),
             Gaming = ParseGaming(table),
+            Touchpad = ParseTouchpad(table),
             Launch = ParseLaunchEntries(table),
             WindowRules = ParseWindowRules(table),
             Beziers = ParseBeziers(table),
@@ -514,6 +515,22 @@ public sealed class ConfigManager : IDisposable
             ReducedPollingMs = GetInt(t, "reduced_polling_ms", 10000),
             NormalPollingMs = GetInt(t, "normal_polling_ms", 2000),
             GameProcesses = gameProcs,
+        };
+    }
+
+    private static TouchpadConfig ParseTouchpad(TomlTable table)
+    {
+        if (!table.TryGetValue("touchpad", out var obj) || obj is not TomlTable t)
+            return new TouchpadConfig();
+
+        return new TouchpadConfig
+        {
+            Enabled = GetBool(t, "enabled", true),
+            Fingers = GetInt(t, "fingers", 3),
+            SwipeLeft = GetString(t, "swipe_left", "workspace_prev"),
+            SwipeRight = GetString(t, "swipe_right", "workspace_next"),
+            SwipeUp = GetString(t, "swipe_up", "none"),
+            SwipeDown = GetString(t, "swipe_down", "minimize_all"),
         };
     }
 
