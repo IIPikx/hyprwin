@@ -29,6 +29,19 @@ public partial class SettingsWindow : Window
 
     private void LoadValues()
     {
+        // General
+        TerminalCmd.Text = _config.General.TerminalCommand;
+        WorkspaceCount.Text = _config.General.WorkspaceCount.ToString();
+        Autostart.IsChecked = _config.General.Autostart;
+        foreach (ComboBoxItem item in WorkspaceMode.Items)
+        {
+            if (item.Content?.ToString() == _config.General.WorkspaceMode)
+            {
+                WorkspaceMode.SelectedItem = item;
+                break;
+            }
+        }
+
         // Layout
         GapsInner.Text = _config.Layout.GapsInner.ToString();
         GapsOuter.Text = _config.Layout.GapsOuter.ToString();
@@ -42,20 +55,29 @@ public partial class SettingsWindow : Window
         TopBarFg.Text = _config.Theme.TopBarFg;
         TopBarAccent.Text = _config.Theme.TopBarAccent;
 
+        // Top Bar
+        TopBarEnabled.IsChecked = _config.TopBar.Enabled;
+        TopBarHeight.Text = _config.TopBar.Height.ToString();
+        TopBarFont.Text = _config.TopBar.Font;
+        TopBarFontSize.Text = _config.TopBar.FontSize.ToString();
+        TopBarModulesRight.Text = string.Join(", ", _config.TopBar.ModulesRight.Modules);
+        foreach (ComboBoxItem item in TopBarPosition.Items)
+        {
+            if (item.Content?.ToString() == _config.TopBar.Position)
+            {
+                TopBarPosition.SelectedItem = item;
+                break;
+            }
+        }
+
         // Animations
         AnimEnabled.IsChecked = _config.Animations.Enabled;
         AnimMoveDuration.Text = _config.Animations.WindowMoveDurationMs.ToString();
 
-        // General
-        TerminalCmd.Text = _config.General.TerminalCommand;
-        foreach (ComboBoxItem item in WorkspaceMode.Items)
-        {
-            if (item.Content?.ToString() == _config.General.WorkspaceMode)
-            {
-                WorkspaceMode.SelectedItem = item;
-                break;
-            }
-        }
+        // Gaming
+        GamingEnabled.IsChecked = _config.Gaming.Enabled;
+        GamingSuspendAnim.IsChecked = _config.Gaming.SuspendAnimations;
+        GamingSuspendBorder.IsChecked = _config.Gaming.SuspendBorder;
 
         // Exclusions
         ExcludedProcesses.Text = string.Join(", ", _config.Exclude.ProcessNames);
@@ -73,6 +95,13 @@ public partial class SettingsWindow : Window
 
             var toml = File.ReadAllText(_configPath);
 
+            // General
+            toml = SetTomlStringValue(toml, "terminal_command", TerminalCmd.Text.Trim());
+            toml = SetTomlValue(toml, "workspace_count", WorkspaceCount.Text.Trim());
+            var selectedMode = (WorkspaceMode.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "monitor_bound";
+            toml = SetTomlStringValue(toml, "workspace_mode", selectedMode);
+            toml = SetTomlValueInSection(toml, "general", "autostart", Autostart.IsChecked == true ? "true" : "false");
+
             // Layout
             toml = SetTomlValue(toml, "gaps_inner", GapsInner.Text.Trim());
             toml = SetTomlValue(toml, "gaps_outer", GapsOuter.Text.Trim());
@@ -86,16 +115,31 @@ public partial class SettingsWindow : Window
             toml = SetTomlStringValue(toml, "top_bar_fg", TopBarFg.Text.Trim());
             toml = SetTomlStringValue(toml, "top_bar_accent", TopBarAccent.Text.Trim());
 
-            // Animations — use section-aware replacement: "enabled" also exists in [top_bar]
+            // Top Bar
+            toml = SetTomlValueInSection(toml, "top_bar", "enabled", TopBarEnabled.IsChecked == true ? "true" : "false");
+            toml = SetTomlValueInSection(toml, "top_bar", "height", TopBarHeight.Text.Trim());
+            var selectedPosition = (TopBarPosition.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "top";
+            toml = SetTomlStringValue(toml, "position", selectedPosition);
+            toml = SetTomlStringValue(toml, "font", TopBarFont.Text.Trim());
+            toml = SetTomlValueInSection(toml, "top_bar", "font_size", TopBarFontSize.Text.Trim());
+
+            // Top Bar Right Modules
+            var mods = TopBarModulesRight.Text
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(s => s.Length > 0)
+                .Select(s => $"\"{s}\"");
+            toml = SetTomlArrayValueInSection(toml, "top_bar.modules_right", "modules", $"[{string.Join(", ", mods)}]");
+
+            // Animations
             toml = SetTomlValueInSection(toml, "animations", "enabled", AnimEnabled.IsChecked == true ? "true" : "false");
             toml = SetTomlValue(toml, "window_move_duration_ms", AnimMoveDuration.Text.Trim());
 
-            // General
-            toml = SetTomlStringValue(toml, "terminal_command", TerminalCmd.Text.Trim());
-            var selectedMode = (WorkspaceMode.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "monitor_bound";
-            toml = SetTomlStringValue(toml, "workspace_mode", selectedMode);
+            // Gaming
+            toml = SetTomlValueInSection(toml, "gaming", "enabled", GamingEnabled.IsChecked == true ? "true" : "false");
+            toml = SetTomlValueInSection(toml, "gaming", "suspend_animations", GamingSuspendAnim.IsChecked == true ? "true" : "false");
+            toml = SetTomlValueInSection(toml, "gaming", "suspend_border", GamingSuspendBorder.IsChecked == true ? "true" : "false");
 
-            // Exclusions — rebuild the array
+            // Exclusions
             var procs = ExcludedProcesses.Text
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(s => s.Length > 0)
@@ -119,11 +163,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = _configPath,
-                UseShellExecute = true,
-            });
+            Process.Start(new ProcessStartInfo { FileName = _configPath, UseShellExecute = true });
         }
         catch (Exception ex)
         {
@@ -131,37 +171,26 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>
-    /// Replace a TOML key's value (numeric/boolean). Matches: key = value
-    /// Uses "${1}"/"${3}" notation to avoid $1digit ambiguity in .NET regex replacements
-    /// (e.g. value="4" would produce "$14" which .NET treats as backreference to group 14).
-    /// </summary>
     private static string SetTomlValue(string toml, string key, string value)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)(.+?)(\s*(?:#.*)?)$";
         return Regex.Replace(toml, pattern, "${1}" + value + "${3}", RegexOptions.Multiline);
     }
 
-    /// <summary>
-    /// Replace a TOML key's value only within a specific [section] block.
-    /// Prevents false positives when the same key name appears in multiple sections (e.g. "enabled").
-    /// </summary>
     private static string SetTomlValueInSection(string toml, string section, string key, string value)
     {
-        // Locate the [section] header
         int start = toml.IndexOf($"\n[{section}]");
         if (start < 0)
         {
             if (!toml.StartsWith($"[{section}]"))
-                return SetTomlValue(toml, key, value); // fallback: section not found
+                return SetTomlValue(toml, key, value);
             start = 0;
         }
         else
         {
-            start += 1; // skip the leading newline
+            start += 1;
         }
 
-        // Find the next top-level [section] header (not [[array]] headers)
         int searchFrom = start + section.Length + 2;
         var nextSection = Regex.Match(toml.Substring(searchFrom), @"^\[(?!\[)", RegexOptions.Multiline);
         int end = nextSection.Success ? searchFrom + nextSection.Index : toml.Length;
@@ -174,21 +203,33 @@ public partial class SettingsWindow : Window
         return before + sectionContent + after;
     }
 
-    /// <summary>
-    /// Replace a TOML key's string value (quoted). Matches: key = "value"
-    /// </summary>
     private static string SetTomlStringValue(string toml, string key, string value)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)""[^""]*""(.*)$";
         return Regex.Replace(toml, pattern, "${1}\"" + value + "\"${2}", RegexOptions.Multiline);
     }
 
-    /// <summary>
-    /// Replace a TOML key's array value. Matches: key = [...]
-    /// </summary>
     private static string SetTomlArrayValue(string toml, string key, string arrayValue)
     {
         var pattern = $@"^(\s*{Regex.Escape(key)}\s*=\s*)\[.*?\](.*)$";
         return Regex.Replace(toml, pattern, "${1}" + arrayValue + "${2}", RegexOptions.Multiline);
+    }
+
+    private static string SetTomlArrayValueInSection(string toml, string section, string key, string arrayValue)
+    {
+        int start = toml.IndexOf($"\n[{section}]");
+        if (start < 0) return SetTomlArrayValue(toml, key, arrayValue);
+        start += 1;
+
+        int searchFrom = start + section.Length + 2;
+        var nextSection = Regex.Match(toml.Substring(searchFrom), @"^\[(?!\[)", RegexOptions.Multiline);
+        int end = nextSection.Success ? searchFrom + nextSection.Index : toml.Length;
+
+        string before = toml[..start];
+        string sectionContent = toml[start..end];
+        string after = toml[end..];
+
+        sectionContent = SetTomlArrayValue(sectionContent, key, arrayValue);
+        return before + sectionContent + after;
     }
 }

@@ -2,13 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="HyprWin Settings"
-        Width="560" Height="640"
+        Width="620" Height="720"
         WindowStartupLocation="CenterScreen"
         Background="#1e1e2e"
         WindowStyle="SingleBorderWindow"
         ResizeMode="NoResize">
     <Window.Resources>
-        <!-- Shared text style -->
         <Style x:Key="LabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#cdd6f4"/>
             <Setter Property="FontSize" Value="13"/>
@@ -20,7 +19,13 @@
             <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="Margin" Value="0,12,0,6"/>
+            <Setter Property="Margin" Value="0,14,0,6"/>
+        </Style>
+        <Style x:Key="SubHeaderStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#a6adc8"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
         <Style x:Key="InputStyle" TargetType="TextBox">
             <Setter Property="Background" Value="#313244"/>
@@ -30,6 +35,10 @@
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
+        </Style>
+        <Style x:Key="CheckStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#cdd6f4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="BtnStyle" TargetType="Button">
             <Setter Property="Background" Value="#89b4fa"/>
@@ -43,9 +52,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="4" 
-                                Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -62,108 +69,11 @@
         
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="20,8,20,0">
             <StackPanel>
-                <!-- Layout -->
-                <TextBlock Style="{StaticResource HeaderStyle}" Text="Layout"/>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inner Gaps (px)"/>
-                    <TextBox x:Name="GapsInner" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Outer Gaps (px)"/>
-                    <TextBox x:Name="GapsOuter" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Border Size (px)"/>
-                    <TextBox x:Name="BorderSize" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Corner Rounding (px)"/>
-                    <TextBox x:Name="Rounding" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
-                </Grid>
-
-                <!-- Theme -->
-                <TextBlock Style="{StaticResource HeaderStyle}" Text="Theme"/>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Active Border"/>
-                    <TextBox x:Name="BorderActive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inactive Border"/>
-                    <TextBox x:Name="BorderInactive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Background"/>
-                    <TextBox x:Name="TopBarBg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Foreground"/>
-                    <TextBox x:Name="TopBarFg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Accent"/>
-                    <TextBox x:Name="TopBarAccent" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
-                </Grid>
-
-                <!-- Animations -->
-                <TextBlock Style="{StaticResource HeaderStyle}" Text="Animations"/>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Enabled"/>
-                    <CheckBox x:Name="AnimEnabled" Grid.Column="1" VerticalAlignment="Center"/>
-                </Grid>
-                <Grid Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="Move Duration (ms)"/>
-                    <TextBox x:Name="AnimMoveDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
-                </Grid>
-
                 <!-- General -->
-                <TextBlock Style="{StaticResource HeaderStyle}" Text="General"/>
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE713;  General" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI"/>
                 <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Terminal Command"/>
@@ -171,7 +81,7 @@
                 </Grid>
                 <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Workspace Mode"/>
@@ -181,12 +91,209 @@
                         <ComboBoxItem Content="virtual"/>
                     </ComboBox>
                 </Grid>
-
-                <!-- Exclusions -->
-                <TextBlock Style="{StaticResource HeaderStyle}" Text="Exclusions"/>
                 <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Workspace Count"/>
+                    <TextBox x:Name="WorkspaceCount" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Autostart with Windows"/>
+                    <CheckBox x:Name="Autostart" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+
+                <!-- Layout -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE80A;  Layout"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inner Gaps (px)"/>
+                    <TextBox x:Name="GapsInner" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Outer Gaps (px)"/>
+                    <TextBox x:Name="GapsOuter" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Border Size (px)"/>
+                    <TextBox x:Name="BorderSize" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Corner Rounding (px)"/>
+                    <TextBox x:Name="Rounding" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Theme -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE790;  Theme"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Active Border Color"/>
+                    <TextBox x:Name="BorderActive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inactive Border Color"/>
+                    <TextBox x:Name="BorderInactive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Background"/>
+                    <TextBox x:Name="TopBarBg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Foreground"/>
+                    <TextBox x:Name="TopBarFg" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Top Bar Accent"/>
+                    <TextBox x:Name="TopBarAccent" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Top Bar -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE8A1;  Top Bar"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Enabled"/>
+                    <CheckBox x:Name="TopBarEnabled" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Height (px)"/>
+                    <TextBox x:Name="TopBarHeight" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Position"/>
+                    <ComboBox x:Name="TopBarPosition" Grid.Column="1" Width="120" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13">
+                        <ComboBoxItem Content="top"/>
+                        <ComboBoxItem Content="bottom"/>
+                    </ComboBox>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Font"/>
+                    <TextBox x:Name="TopBarFont" Grid.Column="1" Style="{StaticResource InputStyle}" Width="200" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Font Size"/>
+                    <TextBox x:Name="TopBarFontSize" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Right Modules"/>
+                    <TextBox x:Name="TopBarModulesRight" Grid.Column="1" Style="{StaticResource InputStyle}" HorizontalAlignment="Stretch"
+                             ToolTip="Comma-separated: tray, cpu, cpu_temp, gpu, gpu_temp, memory, volume, network, battery"/>
+                </Grid>
+
+                <!-- Animations -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE7B5;  Animations"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Enabled"/>
+                    <CheckBox x:Name="AnimEnabled" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Move Duration (ms)"/>
+                    <TextBox x:Name="AnimMoveDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Gaming Mode -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE7FC;  Gaming Mode"/>
+                <TextBlock Style="{StaticResource SubHeaderStyle}" Text="Reduces overhead when a fullscreen game is detected"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Auto-detect Games"/>
+                    <CheckBox x:Name="GamingEnabled" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Suspend Animations"/>
+                    <CheckBox x:Name="GamingSuspendAnim" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Suspend Border"/>
+                    <CheckBox x:Name="GamingSuspendBorder" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
+                </Grid>
+
+                <!-- Exclusions -->
+                <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE711;  Exclusions"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Excluded Processes" ToolTip="Comma-separated process names without .exe"/>

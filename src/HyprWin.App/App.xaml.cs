@@ -36,6 +36,10 @@ public partial class App : Application
     // from touching windows that are already in the process of closing.
     private volatile bool _shuttingDown = false;
 
+    // Gaming mode state
+    private volatile bool _gamingModeActive = false;
+    private System.Windows.Threading.DispatcherTimer? _gamingDetectionTimer;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -255,6 +259,10 @@ public partial class App : Application
 
             // 18. Sync autostart registry entry with config
             AutostartManager.SetEnabled(config.General.Autostart);
+
+            // 18b. Start gaming mode detection
+            if (config.Gaming.Enabled)
+                StartGamingDetection(config);
 
             // 19. Start config file watching
             _configManager.ConfigChanged += OnConfigChanged;
@@ -689,6 +697,90 @@ public partial class App : Application
         menu.Items.Add(exitItem);
 
         return menu;
+    }
+
+    // ──────────────── Gaming Mode ────────────────
+
+    private void StartGamingDetection(HyprWin.Core.Configuration.HyprWinConfig config)
+    {
+        _gamingDetectionTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _gamingDetectionTimer.Tick += (_, _) => CheckGamingMode(config);
+        _gamingDetectionTimer.Start();
+    }
+
+    private void CheckGamingMode(HyprWin.Core.Configuration.HyprWinConfig config)
+    {
+        if (_shuttingDown) return;
+
+        try
+        {
+            var fgHwnd = HyprWin.Core.Interop.NativeMethods.GetForegroundWindow();
+            if (fgHwnd == IntPtr.Zero) { ExitGamingMode(config); return; }
+
+            bool isFullscreenGame = WindowTracker.IsFullscreenWindow(fgHwnd);
+
+            if (isFullscreenGame && config.Gaming.GameProcesses.Count > 0)
+            {
+                var procName = GetProcessName(fgHwnd);
+                if (!string.IsNullOrEmpty(procName))
+                {
+                    isFullscreenGame = config.Gaming.GameProcesses.Any(g =>
+                        g.Equals(procName, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            if (isFullscreenGame && !_gamingModeActive)
+                EnterGamingMode(config);
+            else if (!isFullscreenGame && _gamingModeActive)
+                ExitGamingMode(config);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Debug($"Gaming mode check error: {ex.Message}");
+        }
+    }
+
+    private void EnterGamingMode(HyprWin.Core.Configuration.HyprWinConfig config)
+    {
+        _gamingModeActive = true;
+        Logger.Instance.Info("Gaming mode ACTIVATED — reducing overhead");
+
+        if (config.Gaming.SuspendAnimations)
+            _animationEngine.IsEnabled = false;
+
+        if (config.Gaming.SuspendBorder)
+            _borderRenderer?.Hide();
+
+        _sysInfoService?.SetGamingMode(true);
+    }
+
+    private void ExitGamingMode(HyprWin.Core.Configuration.HyprWinConfig config)
+    {
+        if (!_gamingModeActive) return;
+        _gamingModeActive = false;
+        Logger.Instance.Info("Gaming mode DEACTIVATED — restoring normal operation");
+
+        _animationEngine.UpdateFromConfig(config.Animations);
+
+        var fgHwnd = HyprWin.Core.Interop.NativeMethods.GetForegroundWindow();
+        if (fgHwnd != IntPtr.Zero)
+            _borderRenderer?.TrackWindow(fgHwnd);
+
+        _sysInfoService?.SetGamingMode(false);
+    }
+
+    private static string GetProcessName(IntPtr hwnd)
+    {
+        try
+        {
+            HyprWin.Core.Interop.NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
+            return proc.ProcessName;
+        }
+        catch { return ""; }
     }
 
     // ──────────────── Bezier Curves & Window Rules ────────────────

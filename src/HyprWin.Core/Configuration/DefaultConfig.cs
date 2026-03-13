@@ -145,7 +145,7 @@ modules = ["workspaces"]
 modules = ["clock"]
 
 [top_bar.modules_right]
-modules = ["tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "network", "volume"]
+modules = ["tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "network", "volume", "battery"]
 
 # Clock widget configuration
 [top_bar.clock]
@@ -219,6 +219,19 @@ command  = "https://"
 # [[window_rule]]
 # match_process = "Spotify"
 # workspace     = 3
+
+# ─────────────────────── Gaming Mode ───────────────────────
+# When a fullscreen game is detected, HyprWin reduces overhead by
+# suspending animations, hiding the border overlay, and lowering
+# system info polling frequency. This eliminates micro-stutters
+# caused by the tiling manager's background operations.
+[gaming]
+enabled             = true     # Enable automatic game detection
+suspend_animations  = true     # Disable window animations during gaming
+suspend_border      = true     # Hide border overlay during gaming
+reduced_polling_ms  = 10000    # System info poll interval during gaming (ms)
+normal_polling_ms   = 2000     # Normal system info poll interval (ms)
+# game_processes = ["csgo", "Overwatch", "valorant"]  # Force-detect these as games
 
 # ─────────────────────── Exclusions ───────────────────────
 # Programs and window classes to exclude from tiling/management.

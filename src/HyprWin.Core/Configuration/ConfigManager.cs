@@ -177,6 +177,7 @@ public sealed class ConfigManager : IDisposable
             Theme = ParseTheme(table),
             TopBar = ParseTopBar(table),
             Exclude = ParseExclude(table),
+            Gaming = ParseGaming(table),
             Launch = ParseLaunchEntries(table),
             WindowRules = ParseWindowRules(table),
             Beziers = ParseBeziers(table),
@@ -494,6 +495,26 @@ public sealed class ConfigManager : IDisposable
         }
 
         return beziers;
+    }
+
+    private static GamingConfig ParseGaming(TomlTable table)
+    {
+        if (!table.TryGetValue("gaming", out var obj) || obj is not TomlTable t)
+            return new GamingConfig();
+
+        var gameProcs = new List<string>();
+        if (t.TryGetValue("game_processes", out var pObj) && pObj is TomlArray pArr)
+            gameProcs = pArr.OfType<string>().ToList();
+
+        return new GamingConfig
+        {
+            Enabled = GetBool(t, "enabled", true),
+            SuspendAnimations = GetBool(t, "suspend_animations", true),
+            SuspendBorder = GetBool(t, "suspend_border", true),
+            ReducedPollingMs = GetInt(t, "reduced_polling_ms", 10000),
+            NormalPollingMs = GetInt(t, "normal_polling_ms", 2000),
+            GameProcesses = gameProcs,
+        };
     }
 
     private static ExcludeConfig ParseExclude(TomlTable table)

@@ -1,0 +1,16 @@
+# Build output
+**/bin/
+**/obj/
+
+# Published binaries
+publish/bin/
+
+# Installer output
+installer/
+
+# User settings
+*.user
+*.suo
+
+# IDE
+.vs/

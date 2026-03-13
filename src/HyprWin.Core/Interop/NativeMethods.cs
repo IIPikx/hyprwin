@@ -524,6 +524,64 @@ public static class NativeMethods
 
     public const int RGN_DIFF = 4;  // Result = region 1 minus region 2
 
+    // DeferWindowPos — batch multiple SetWindowPos calls into a single
+    // screen update, reducing DWM recomposition passes (major perf win for tiling).
+    [DllImport("user32.dll")]
+    public static extern IntPtr BeginDeferWindowPos(int nNumWindows);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr DeferWindowPos(IntPtr hWinPosInfo, IntPtr hWnd,
+        IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EndDeferWindowPos(IntPtr hWinPosInfo);
+
+    // Brightness — used by system menu
+    [DllImport("dxva2.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(IntPtr hMonitor, out uint pdwNumberOfPhysicalMonitors);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct PHYSICAL_MONITOR
+    {
+        public IntPtr hPhysicalMonitor;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szPhysicalMonitorDescription;
+    }
+
+    [DllImport("dxva2.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr hMonitor, uint dwPhysicalMonitorArraySize, [Out] PHYSICAL_MONITOR[] pPhysicalMonitorArray);
+
+    [DllImport("dxva2.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorBrightness(IntPtr hMonitor, out uint pdwMinimumBrightness, out uint pdwCurrentBrightness, out uint pdwMaximumBrightness);
+
+    [DllImport("dxva2.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetMonitorBrightness(IntPtr hMonitor, uint dwNewBrightness);
+
+    [DllImport("dxva2.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyPhysicalMonitor(IntPtr hMonitor);
+
+    // Power/Battery status
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SYSTEM_POWER_STATUS
+    {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public uint BatteryLifeTime;
+        public uint BatteryFullLifeTime;
+    }
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
+
     // Keyboard simulation
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);

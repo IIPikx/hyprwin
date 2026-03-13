@@ -43,6 +43,17 @@ public sealed class SystemMetrics
     // Bluetooth
     public bool    BtAvailable   { get; init; }
     public bool    BtEnabled     { get; init; }
+
+    // Battery
+    public bool    HasBattery    { get; init; }
+    public int     BatteryPct    { get; init; }
+    public bool    IsCharging    { get; init; }
+
+    // Brightness (0-100, -1 = unavailable)
+    public int     Brightness    { get; init; } = -1;
+
+    // Focus / Do Not Disturb
+    public bool    FocusAssistOn { get; init; }
 }
 
 /// <summary>
@@ -75,6 +86,30 @@ public sealed class SystemInfoService : IDisposable
     private string _mediaTitle   = "";
     private string _mediaArtist  = "";
     private bool   _mediaPlaying;
+
+    // ── Battery / Brightness ─────────────────────────────────────────────────
+    private bool   _hasBattery;
+    private int    _batteryPct;
+    private bool   _isCharging;
+    private int    _brightness = -1;
+#pragma warning disable CS0649 // future feature: Focus Assist detection
+    private bool   _focusAssistOn;
+#pragma warning restore CS0649
+
+    // ── Gaming mode ──────────────────────────────────────────────────────────
+    private volatile bool _gamingMode;
+    public bool IsGamingMode => _gamingMode;
+    public event Action<bool>? GamingModeChanged;
+
+    public void SetGamingMode(bool active)
+    {
+        if (_gamingMode == active) return;
+        _gamingMode = active;
+        var interval = active ? TimeSpan.FromMilliseconds(10000) : TimeSpan.FromSeconds(2);
+        _pollTimer?.Change(interval, interval);
+        GamingModeChanged?.Invoke(active);
+        Logger.Instance.Info($"Gaming mode: {(active ? "ON" : "OFF")} — polling every {interval.TotalMilliseconds}ms");
+    }
 
     // ── Network rate tracking ────────────────────────────────────────────────
     private long  _lastBytesReceived;
@@ -133,6 +168,9 @@ public sealed class SystemInfoService : IDisposable
             int  volume  = AudioManager.GetVolume();
             bool muted   = AudioManager.IsMuted();
 
+            ReadBattery();
+            ReadBrightness();
+
             var snap = new SystemMetrics
             {
                 CpuUsagePct = cpu,
@@ -156,6 +194,11 @@ public sealed class SystemInfoService : IDisposable
                 MediaPlaying = _mediaPlaying,
                 BtAvailable = _btAvailable,
                 BtEnabled   = _btEnabled,
+                HasBattery  = _hasBattery,
+                BatteryPct  = _batteryPct,
+                IsCharging  = _isCharging,
+                Brightness  = _brightness,
+                FocusAssistOn = _focusAssistOn,
             };
 
             _metrics = snap;
@@ -275,6 +318,92 @@ public sealed class SystemInfoService : IDisposable
             return (Math.Max(0, downRate), Math.Max(0, upRate));
         }
         catch { return (0, 0); }
+    }
+
+    // ── Battery / Brightness ───────────────────────────────────────────────────
+
+    private void ReadBattery()
+    {
+        try
+        {
+            if (Interop.NativeMethods.GetSystemPowerStatus(out var status))
+            {
+                _hasBattery = status.BatteryFlag != 128; // 128 = no battery
+                _batteryPct = status.BatteryLifePercent <= 100 ? status.BatteryLifePercent : -1;
+                _isCharging = status.ACLineStatus == 1;
+            }
+        }
+        catch { _hasBattery = false; }
+    }
+
+    private void ReadBrightness()
+    {
+        try
+        {
+            var pt = new Interop.NativeMethods.POINT { X = 0, Y = 0 };
+            var hMon = Interop.NativeMethods.MonitorFromPoint(pt, Interop.NativeMethods.MONITOR_DEFAULTTOPRIMARY);
+            if (hMon == IntPtr.Zero) return;
+
+            if (!Interop.NativeMethods.GetNumberOfPhysicalMonitorsFromHMONITOR(hMon, out uint count) || count == 0)
+                return;
+
+            var monitors = new Interop.NativeMethods.PHYSICAL_MONITOR[count];
+            if (!Interop.NativeMethods.GetPhysicalMonitorsFromHMONITOR(hMon, count, monitors))
+                return;
+
+            try
+            {
+                if (Interop.NativeMethods.GetMonitorBrightness(monitors[0].hPhysicalMonitor,
+                    out uint min, out uint cur, out uint max))
+                {
+                    _brightness = max > min ? (int)((cur - min) * 100 / (max - min)) : (int)cur;
+                }
+            }
+            finally
+            {
+                foreach (var m in monitors)
+                    Interop.NativeMethods.DestroyPhysicalMonitor(m.hPhysicalMonitor);
+            }
+        }
+        catch { _brightness = -1; }
+    }
+
+    public void SetBrightness(int percent)
+    {
+        try
+        {
+            percent = Math.Clamp(percent, 0, 100);
+            var pt = new Interop.NativeMethods.POINT { X = 0, Y = 0 };
+            var hMon = Interop.NativeMethods.MonitorFromPoint(pt, Interop.NativeMethods.MONITOR_DEFAULTTOPRIMARY);
+            if (hMon == IntPtr.Zero) return;
+
+            if (!Interop.NativeMethods.GetNumberOfPhysicalMonitorsFromHMONITOR(hMon, out uint count) || count == 0)
+                return;
+
+            var monitors = new Interop.NativeMethods.PHYSICAL_MONITOR[count];
+            if (!Interop.NativeMethods.GetPhysicalMonitorsFromHMONITOR(hMon, count, monitors))
+                return;
+
+            try
+            {
+                if (Interop.NativeMethods.GetMonitorBrightness(monitors[0].hPhysicalMonitor,
+                    out uint min, out _, out uint max))
+                {
+                    uint target = (uint)(min + (max - min) * percent / 100);
+                    Interop.NativeMethods.SetMonitorBrightness(monitors[0].hPhysicalMonitor, target);
+                    _brightness = percent;
+                }
+            }
+            finally
+            {
+                foreach (var m in monitors)
+                    Interop.NativeMethods.DestroyPhysicalMonitor(m.hPhysicalMonitor);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Warn($"SetBrightness failed: {ex.Message}");
+        }
     }
 
     // ── WinRT async queries ───────────────────────────────────────────────────

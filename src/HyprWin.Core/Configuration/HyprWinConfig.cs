@@ -15,6 +15,7 @@ public sealed class HyprWinConfig
     public TopBarConfig TopBar { get; init; } = new();
     public GeneralConfig General { get; init; } = new();
     public ExcludeConfig Exclude { get; init; } = new();
+    public GamingConfig Gaming { get; init; } = new();
 
     /// <summary>Custom program launch shortcuts defined via [[launch]] entries.</summary>
     public List<LaunchEntry> Launch { get; init; } = new();
@@ -139,7 +140,7 @@ public sealed class TopBarConfig
     public int FontSize { get; init; } = 12;
     public TopBarModulesConfig ModulesLeft { get; init; } = new() { Modules = new() { "workspaces" } };
     public TopBarModulesConfig ModulesCenter { get; init; } = new() { Modules = new() { "clock" } };
-    public TopBarModulesConfig ModulesRight { get; init; } = new() { Modules = new() { "tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "volume" } };
+    public TopBarModulesConfig ModulesRight { get; init; } = new() { Modules = new() { "tray", "cpu", "cpu_temp", "gpu", "gpu_temp", "memory", "volume", "battery" } };
     public ClockConfig Clock { get; init; } = new();
     public WorkspacesWidgetConfig Workspaces { get; init; } = new();
 }
@@ -222,6 +223,27 @@ public sealed class LaunchEntry
 /// <summary>
 /// Programs to exclude from tiling/management.
 /// </summary>
+/// <summary>
+/// Gaming performance configuration. When a fullscreen game is detected,
+/// HyprWin reduces overhead by suspending animations, border rendering,
+/// and lowering timer frequencies.
+/// </summary>
+public sealed class GamingConfig
+{
+    /// <summary>Enable automatic game detection and performance mode.</summary>
+    public bool Enabled { get; init; } = true;
+    /// <summary>Suspend window animations while a fullscreen game is active.</summary>
+    public bool SuspendAnimations { get; init; } = true;
+    /// <summary>Hide border overlay while a fullscreen game is active.</summary>
+    public bool SuspendBorder { get; init; } = true;
+    /// <summary>Reduce system info polling interval (ms) during gaming.</summary>
+    public int ReducedPollingMs { get; init; } = 10000;
+    /// <summary>Normal system info polling interval (ms).</summary>
+    public int NormalPollingMs { get; init; } = 2000;
+    /// <summary>Process names (without .exe) that are always treated as games.</summary>
+    public List<string> GameProcesses { get; init; } = new();
+}
+
  public sealed class ExcludeConfig
 {
     /// <summary>Process names (without .exe) to exclude from management.</summary>

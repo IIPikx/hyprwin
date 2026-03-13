@@ -156,7 +156,7 @@ public partial class TopBarWindow : Window
         ClockText.Foreground = fgBrush;
 
         // Apply to system modules
-        foreach (var tb in new[] { CpuText, CpuTempText, GpuText, GpuTempText, MemoryText, VolumeText, NetworkText })
+        foreach (var tb in new[] { CpuText, CpuTempText, GpuText, GpuTempText, MemoryText, VolumeText, NetworkText, BatteryText })
         {
             tb.FontFamily = fontFamily;
             tb.FontSize = fontSize;
@@ -178,6 +178,7 @@ public partial class TopBarWindow : Window
         MemoryText.Visibility  = rightModules.Contains("memory")   ? Visibility.Visible : Visibility.Collapsed;
         VolumeText.Visibility  = rightModules.Contains("volume")   ? Visibility.Visible : Visibility.Collapsed;
         NetworkText.Visibility = rightModules.Contains("network")  ? Visibility.Visible : Visibility.Collapsed;
+        BatteryText.Visibility = rightModules.Contains("battery") ? Visibility.Visible : Visibility.Collapsed;
 
         // Buttons
         WindowsMenuButton.Foreground = fgBrush;
@@ -338,6 +339,19 @@ public partial class TopBarWindow : Window
             string down = FormatBytesRate(m.NetDownBytesPerSec);
             string up   = FormatBytesRate(m.NetUpBytesPerSec);
             NetworkText.Text = $" ↓{down} ↑{up}";
+        }
+
+        if (BatteryText.Visibility == Visibility.Visible)
+        {
+            if (m.HasBattery)
+            {
+                string icon = m.IsCharging ? "⚡" : (m.BatteryPct > 75 ? "🔋" : m.BatteryPct > 25 ? "🔋" : "🪫");
+                BatteryText.Text = $" {icon} {m.BatteryPct}%";
+            }
+            else
+            {
+                BatteryText.Text = " ⚡AC";
+            }
         }
     }
 

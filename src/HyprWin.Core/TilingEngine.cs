@@ -293,31 +293,22 @@ public sealed class TilingEngine
         // Build lookup once for O(1) hit per leaf
         windowLookup ??= BuildWindowLookup(workspace);
 
-        // Apply positions
-        foreach (var leaf in workspace.LayoutRoot.GetLeaves())
+        // Collect windows to position, then apply as a batch via DeferWindowPos
+        // to reduce DWM recomposition passes (significant perf win with many windows).
+        var leaves = workspace.LayoutRoot.GetLeaves().ToList();
+        var pendingMoves = new List<(IntPtr hwnd, NativeMethods.RECT target, NativeMethods.RECT adjusted)>();
+
+        foreach (var leaf in leaves)
         {
             windowLookup.TryGetValue(leaf.WindowHandle, out var window);
             if (window == null || window.IsFloating || window.IsFullscreen) continue;
-
-            // Skip truly-minimized windows — use cached flag only.
-            // Do NOT call IsIconic() here and do NOT mutate window.IsMinimized.
-            // Some apps (Electron/Chrome/VSCode) briefly report IsIconic=true during
-            // a programmatic SetWindowPos move. Mutating the flag here would permanently
-            // mark the window as minimized (RebuildTree's only-promote rule), causing it
-            // to disappear from tiling until a MinimizeEnd event fires — which never
-            // happens for a window that was never truly minimized.
-            // IsMinimized is managed exclusively by the MinimizeStart/MinimizeEnd hooks.
             if (window.IsMinimized) continue;
 
             var targetRect = leaf.ComputedRect;
 
-            // Restore (un-maximize) BEFORE repositioning so Windows doesn't
-            // override our SetWindowPos with the window's own restore coords.
             if (NativeMethods.IsZoomed(window.Handle))
                 NativeMethods.ShowWindow(window.Handle, NativeMethods.SW_RESTORE);
 
-            // Account for DWM invisible borders, then clamp to physical monitor
-            // bounds so windows never bleed onto adjacent monitors.
             var adjustedRect = ClampToMonitor(
                 AdjustForDwmBorders(window.Handle, targetRect), monBounds);
 
@@ -328,10 +319,40 @@ public sealed class TilingEngine
             }
             else
             {
-                ApplyWindowPosition(window.Handle, adjustedRect);
+                pendingMoves.Add((window.Handle, targetRect, adjustedRect));
             }
 
             window.Bounds = targetRect;
+        }
+
+        // Batch all non-animated moves into a single DeferWindowPos call
+        if (pendingMoves.Count > 0)
+        {
+            var hdwp = NativeMethods.BeginDeferWindowPos(pendingMoves.Count);
+            if (hdwp != IntPtr.Zero)
+            {
+                foreach (var (hwnd, _, adj) in pendingMoves)
+                {
+                    hdwp = NativeMethods.DeferWindowPos(hdwp, hwnd, IntPtr.Zero,
+                        adj.Left, adj.Top, adj.Width, adj.Height,
+                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
+                        | NativeMethods.SWP_SHOWWINDOW | NativeMethods.SWP_NOCOPYBITS
+                        | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_NOSENDCHANGING);
+                    if (hdwp == IntPtr.Zero) break;
+                }
+                if (hdwp != IntPtr.Zero)
+                    NativeMethods.EndDeferWindowPos(hdwp);
+                else
+                {
+                    foreach (var (hwnd, _, adj) in pendingMoves)
+                        ApplyWindowPosition(hwnd, adj);
+                }
+            }
+            else
+            {
+                foreach (var (hwnd, _, adj) in pendingMoves)
+                    ApplyWindowPosition(hwnd, adj);
+            }
         }
     }
 

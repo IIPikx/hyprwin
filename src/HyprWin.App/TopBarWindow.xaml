@@ -162,6 +162,9 @@
                 <TextBlock x:Name="NetworkText"
                            VerticalAlignment="Center"
                            Margin="8,0" />
+                <TextBlock x:Name="BatteryText"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
                 <!-- Task Manager Button -->
                 <Button x:Name="TaskManagerButton"
                         Content="📊"

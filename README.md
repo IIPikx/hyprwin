@@ -1,213 +1,208 @@
-# HyprWin
+# HyprWin — Hyprland-Inspired Tiling Window Manager for Windows 11
 
-Hyprland-inspired tiling window manager for Windows 11.
-
-> WPF · .NET 8 · Self-contained single-file EXE · No admin required*
-
----
+A powerful, customizable tiling window manager for Windows 10/11 that brings the Hyprland experience to the Windows desktop. Built with C# / .NET 8 and WPF.
 
 ## Features
 
-### Window Management
-- **BSP tiling engine** — Binary Space Partitioning layout; every new window automatically splits the available space
-- **Virtual workspaces** — up to N independent workspaces per monitor (default: 3)
-- **Two workspace modes**: `monitor_bound` (workspace N maps to monitor N) or `virtual` (per-monitor virtual desktops)
-- **Float / fullscreen toggle** — switch any tiled window to floating or fullscreen on the fly
-- **Window swap** — mirror all windows left↔right or top↔bottom on the active workspace
-- **Split rotation** — change the split direction of the focused window (horizontal ↔ vertical)
-- **Mouse-free focus navigation** — move focus between windows purely with the keyboard
-- **Window rules** — Hyprland-style `[[window_rule]]` entries: auto-float, pin, assign to workspace, set opacity, custom border, size, position, and more
-- **Exclusion list** — exclude specific processes or window classes from tiling entirely
+### Window Tiling
+- **BSP (Binary Space Partitioning) Layout** — intelligent dwindle-style tiling that preserves split ratios
+- **Multi-Monitor Support** — each monitor has independent workspaces with seamless cross-monitor window moves
+- **Virtual Workspaces** — up to N configurable workspaces per monitor with instant switching
+- **DeferWindowPos Batch Positioning** — all window moves are batched into a single DWM recomposition pass for smooth tiling
+- **Auto-Float** — popups, dialogs, and fullscreen windows are automatically floated
+- **Window Rules** — Hyprland-style `windowrule` for per-app behavior (float, opacity, workspace, size, position)
 
-### Top Bar
-- Replaces the native Windows taskbar (hidden non-destructively; tray icons remain functional)
-- Fully configurable left / center / right module layout
-- Available modules: `workspaces`, `clock`, `cpu`, `cpu_temp`, `gpu`, `gpu_temp`, `memory`, `network`, `volume`, `tray`
-- Hardware sensor data via LibreHardwareMonitor (CPU/GPU temperature, GPU load)
-- System audio volume via WASAPI (no external dependency)
-- Network status: connection type (Wi-Fi/Ethernet), up/down speed
-- Media "Now Playing" info (Windows Runtime)
-- Bluetooth availability and state (Windows Runtime)
-- Configurable font, font size, bar height, and position (top or bottom)
-- Catppuccin Mocha color palette by default — fully customizable via hex colors
+### Gaming Mode
+- **Auto-Detection** — automatically detects fullscreen games and activates performance mode
+- **Suspend Animations** — disables window animations during gaming to eliminate micro-stutters
+- **Suspend Border** — hides the border overlay to reduce GPU overhead
+- **Reduced Polling** — lowers system info polling frequency from 2s to 10s during gaming
+- **Custom Game List** — optionally specify process names that should always trigger gaming mode
 
-### Keyboard & Shortcuts
-- Global low-level keyboard hook (`SetWindowsHookEx WH_KEYBOARD_LL`)
-- All shortcuts fully remappable via `[keybinds]` in `hyprwin.toml`
-- Selective suppression of native Windows shortcuts (`WIN+LEFT`, `WIN+D`, `WIN+TAB`, etc.)
-- Passthrough list for shortcuts that should still reach the OS (`WIN+R`, `WIN+SPACE`)
-- Custom launch shortcuts for any executable via `[[launch]]` entries
+### Top Bar (Taskbar Replacement)
+- **Fully Customizable** — configurable height, position (top/bottom), font, font size, colors
+- **Modular Design** — enable/disable individual modules: `workspaces`, `clock`, `tray`, `cpu`, `cpu_temp`, `gpu`, `gpu_temp`, `memory`, `volume`, `network`, `battery`
+- **Workspace Indicators** — clickable workspace pills with customizable active/inactive symbols
+- **System Tray Integration** — displays notification area icons from the hidden Windows taskbar
+- **Clock with Calendar** — click the clock to open a calendar popup
+- **Battery Module** — displays battery percentage and charging status (laptops)
+- **Fullscreen Auto-Hide** — automatically hides when a fullscreen app is detected
 
-### Configuration
-- TOML config at `%APPDATA%\HyprWin\hyprwin.toml`
-- **Hot-reload** — changes take effect on save, no restart needed
-- Full inline documentation generated on first run
+### System Menu (macOS Control Center Style)
+- **Quick Toggles** — Wi-Fi, Bluetooth, Focus Mode, Nearby Sharing in a grid layout
+- **Now Playing** — media controls with track title, artist, and play/pause/skip
+- **Brightness Slider** — adjust monitor brightness directly (DDC/CI monitors)
+- **Volume Slider** — adjust system volume with mute toggle
+- **Network Status** — shows connected network name and type (Wi-Fi/Ethernet)
+- **Battery Card** — battery percentage, charging status, and dynamic icon
+- **Quick Actions** — Display Settings, Windows Settings, Power options
+- **Segoe Fluent Icons** — modern Windows 11 iconography throughout
+
+### Settings Window
+- **General** — terminal command, workspace mode, workspace count, autostart
+- **Layout** — inner/outer gaps, border size, corner rounding
+- **Theme** — all colors configurable (active/inactive border, top bar bg/fg/accent)
+- **Top Bar** — enable/disable, height, position, font, font size, module selection
+- **Animations** — enable/disable, move duration
+- **Gaming Mode** — auto-detect toggle, suspend animations, suspend border
+- **Exclusions** — comma-separated process names to exclude from tiling
+- **Live Reload** — changes are applied immediately via TOML file watcher
 
 ### Animations
-- Window open / close / move animations with configurable duration
-- Styles: `slide`, `popin`, `fade`
-- Easing: `linear`, `ease_in`, `ease_out`, `ease_out_cubic`, `ease_out_quint`, `ease_out_expo`, `ease_in_out_cubic`, `spring`, or any named custom bezier curve
-- Custom bezier curves definable via `[[bezier]]`
+- **Slide, Popin, Fade** — Hyprland-compatible window open animation styles
+- **Custom Bezier Curves** — define named bezier curves for easing
+- **Built-in Easings** — linear, ease_in, ease_out, ease_out_cubic, ease_out_quint, ease_out_expo, spring
 
-### Other
-- **Autostart** with Windows via registry (`HKCU\...\Run`)
-- Tray icon with quick access to Settings, System Menu, and Quit
-- Colored window border overlay for the focused window (GPU-accelerated, click-through)
-- Detailed log at `%APPDATA%\HyprWin\hyprwin.log`
+### Border Renderer
+- **GPU-Accelerated** — uses Win32 region-based rendering (no AllowsTransparency software fallback)
+- **Zero-Lag Tracking** — WinEvent-driven position updates for instant border following
+- **Customizable** — configurable color, size, and corner rounding
 
----
+### Additional Features
+- **TOML Configuration** — human-readable config with hot-reload at `%APPDATA%\HyprWin\hyprwin.toml`
+- **Window Rules** — match by process, class, or title regex with effects (float, opacity, workspace, size, etc.)
+- **Custom Launch Shortcuts** — bind any key combo to launch any program
+- **Autostart** — optional Windows autostart via registry
+- **Tray Icon** — quick access to reload config, open config folder, toggle autostart
 
-## Default Keyboard Shortcuts
+## Keyboard Shortcuts
 
-All shortcuts are remappable in `hyprwin.toml`. Modifiers: `SUPER`, `SHIFT`, `CTRL`, `ALT`.
-
-### Focus & Navigation
+### Window Focus
 | Shortcut | Action |
-|---|---|
+|----------|--------|
 | `SUPER + ←/→/↑/↓` | Focus window in direction |
 
-### Move & Resize
+### Window Movement
 | Shortcut | Action |
-|---|---|
-| `SUPER + SHIFT + ←/→/↑/↓` | Move focused window in direction |
-| `SUPER + CTRL + ←/→/↑/↓` | Resize focused window |
+|----------|--------|
+| `SUPER + SHIFT + ←/→/↑/↓` | Swap window in direction / move to adjacent monitor |
 
-### Window State
+### Window Resize
 | Shortcut | Action |
-|---|---|
+|----------|--------|
+| `SUPER + CTRL + ←/→/↑/↓` | Resize focused window (hold for continuous) |
+
+### Window Actions
+| Shortcut | Action |
+|----------|--------|
 | `SUPER + Q` | Close focused window |
-| `SUPER + T` | Toggle float |
+| `SUPER + T` | Toggle floating |
 | `SUPER + F` | Toggle fullscreen |
-| `SUPER + D` | Minimize all windows on the active workspace |
-
-### Layout
-| Shortcut | Action |
-|---|---|
-| `SUPER + X` | Set active window's split to top/bottom |
-| `SUPER + Y` | Set active window's split to side-by-side |
-| `SUPER + SHIFT + X` | Mirror all windows left↔right |
-| `SUPER + SHIFT + Y` | Mirror all windows top↔bottom |
+| `SUPER + D` | Minimize all windows on workspace |
 
 ### Workspaces
 | Shortcut | Action |
-|---|---|
-| `SUPER + 1 / 2 / 3` | Switch to workspace 1 / 2 / 3 |
-| `SUPER + SHIFT + 1 / 2 / 3` | Move focused window to workspace 1 / 2 / 3 |
+|----------|--------|
+| `SUPER + 1/2/3` | Switch to workspace 1/2/3 |
+| `SUPER + SHIFT + 1/2/3` | Move window to workspace 1/2/3 |
+
+### Layout
+| Shortcut | Action |
+|----------|--------|
+| `SUPER + X` | Set split to horizontal (side-by-side) |
+| `SUPER + Y` | Set split to vertical (stacked) |
+| `SUPER + SHIFT + X` | Mirror workspace horizontally |
+| `SUPER + SHIFT + Y` | Mirror workspace vertically |
 
 ### Launch
 | Shortcut | Action |
-|---|---|
-| `SUPER + RETURN` | Launch terminal (`wt.exe`) |
+|----------|--------|
+| `SUPER + RETURN` | Launch terminal |
 | `SUPER + E` | Launch File Explorer |
-| `SUPER + B` | Open default browser |
-| `SUPER + I` | Open Windows Settings |
-| `SUPER + SHIFT + S` | Screenshot (Windows Snipping Tool) |
+| `SUPER + I` | Launch Windows Settings |
+| `SUPER + B` | Launch default browser |
+| `SUPER + SHIFT + S` | Screenshot (Snipping Tool) |
 | `SUPER + SHIFT + C` | PowerToys Color Picker |
 | `CTRL + SHIFT + ESC` | Task Manager |
 
-> Custom shortcuts for any executable can be added via `[[launch]]` entries in `hyprwin.toml`.
-
----
-
-## Requirements
-
-- Windows 11 (x64)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) *(only needed to build from source)*
-
----
-
-## Building from Source
-
-### Single-file EXE
-
-```powershell
-dotnet publish src\HyprWin.App\HyprWin.App.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -o publish
-```
-
-The output EXE is placed in `publish\`. It is **self-contained** — no .NET runtime required on the target machine.
-
-### Build only (no publish)
-
-```powershell
-dotnet build HyprWin.sln -c Release
-```
-
----
+### System
+| Shortcut | Action |
+|----------|--------|
+| Win key (suppressed) | Start menu via top bar button |
+| `WIN + R` | Run dialog (passthrough) |
+| `WIN + SPACE` | Input language switch (passthrough) |
 
 ## Configuration
 
-On first launch, HyprWin writes a fully documented config file to:
+Config file: `%APPDATA%\HyprWin\hyprwin.toml`
+
+The config file is auto-generated on first run with inline documentation. Changes are applied instantly — no restart needed.
+
+### Key Sections
+
+```toml
+[general]           # Workspace count, terminal, workspace mode, autostart
+[keybinds]          # All keyboard shortcuts
+[animations]        # Animation styles, durations, easing curves
+[layout]            # Gaps, border size, corner rounding
+[theme]             # Colors (Catppuccin Mocha default)
+[top_bar]           # Bar height, position, font, modules
+[gaming]            # Gaming mode: auto-detect, suspend animations/border
+[exclude]           # Process/class exclusion lists
+[[launch]]          # Custom launch shortcuts
+[[window_rule]]     # Per-window behavior rules
+[[bezier]]          # Custom easing curves
+```
+
+## Building
+
+### Prerequisites
+- .NET 8 SDK
+- Windows 10/11 (Build 22621+)
+
+### Build from Source
+```powershell
+dotnet build src\HyprWin.App\HyprWin.App.csproj -c Release
+```
+
+### Publish Single-File EXE
+```powershell
+dotnet publish src\HyprWin.App\HyprWin.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+```
+
+### Build Installer
+```powershell
+.\publish\build-installer.ps1
+```
+
+## Architecture
 
 ```
-%APPDATA%\HyprWin\hyprwin.toml
-```
-
-The file is **hot-reloaded** on every save — no restart needed.
-
-### Config sections
-
-| Section | Description |
-|---|---|
-| `[general]` | Workspace count, terminal command, workspace mode, autostart |
-| `[keybinds]` | All keyboard shortcuts |
-| `[layout]` | Inner/outer gaps, border thickness, corner rounding |
-| `[theme]` | Border and top bar colors (hex) |
-| `[animations]` | Enable/disable, duration, easing, open style |
-| `[top_bar]` | Modules, font, height, position, clock/workspace config |
-| `[exclude]` | Processes / window classes excluded from tiling |
-| `[[launch]]` | Custom program launch shortcuts |
-| `[[window_rule]]` | Hyprland-style window rules |
-| `[[bezier]]` | Named custom bezier curves for animations |
-| `[windows_keys_to_suppress]` | Native Win key combos to intercept and block |
-| `[windows_keys_to_passthrough]` | Win key combos forwarded to the OS |
-
-### Window rule effects
-
-`float`, `fullscreen`, `workspace`, `pin`, `center`, `no_anim`, `opacity`, `border_color`, `border_size`, `size`, `move`
-
----
-
-## Known Issues & Limitations
-
-- **`WIN+L` and `Ctrl+Alt+Del` cannot be suppressed** — these are handled at the Windows secure desktop level and are outside the reach of any user-mode hook.
-- **CPU/GPU temperature requires administrator privileges** — LibreHardwareMonitor needs ring-0 driver access for sensor readings. Without admin rights, temperature values show as `0`; all other features work normally.
-- **Some UWP / Store apps resist repositioning** — certain modern Windows apps ignore `SetWindowPos` calls. They appear correctly in the BSP tree but may not visually snap to their assigned position.
-- **Task Manager shortcut** (`CTRL+SHIFT+ESC`) is blocked by the low-level hook and must be explicitly listed in `[keybinds]` to work. This is the default configuration; removing the entry disables the shortcut entirely.
-- **Remote Desktop (RDP) sessions** — multi-monitor behavior across RDP boundaries may be unreliable. HyprWin detects RDP sessions but does not have special handling for them.
-- **Tray icons** — icons are read from the hidden native taskbar's `ToolbarWindow32` child. Newly added tray icons may occasionally require a few seconds to appear in the custom bar.
-- **Media info lag** — the "Now Playing" widget is populated via Windows Runtime asynchronously and may be up to one poll cycle (~2 s) behind the current playback state.
-- **Animations in virtual machines** — some VM environments lack proper GPU or compositor support, which can cause animation glitches. HyprWin catches and suppresses these errors automatically but animations may look degraded.
-
----
-
-## Project Structure
-
-```
-HyprWin.sln
 src/
-  HyprWin.App/          # WPF frontend: TopBarWindow, SettingsWindow, SystemMenuWindow, Tray
-  HyprWin.Core/         # Core logic
-    Configuration/      # Config model & TOML parser (live reload)
-    Interop/            # Win32 P/Invoke declarations
-    AnimationEngine.cs
-    AudioManager.cs
-    BorderRenderer.cs
-    HardwareMonitor.cs
-    KeyboardHook.cs
-    SystemInfoService.cs
-    TaskbarManager.cs
-    TilingEngine.cs     # BSP layout engine
-    WindowDispatcher.cs
-    WindowRuleEngine.cs
-    WindowTracker.cs
-    WorkspaceManager.cs
-    ...
+├── HyprWin.App/           # WPF application (UI layer)
+│   ├── App.xaml.cs         # Entry point, orchestrates all subsystems
+│   ├── TopBarWindow        # Taskbar replacement with modular widgets
+│   ├── SystemMenuWindow    # macOS Control Center-style popup
+│   ├── SettingsWindow      # Visual configuration editor
+│   └── CalendarPopupWindow # Calendar popup for clock widget
+│
+└── HyprWin.Core/           # Core logic (no UI dependencies)
+    ├── TilingEngine         # BSP tree layout with DeferWindowPos batching
+    ├── WorkspaceManager     # Virtual workspace management
+    ├── WindowTracker        # Win32 event hooks for window lifecycle
+    ├── WindowDispatcher     # Keybind action handler
+    ├── KeyboardHook         # WH_KEYBOARD_LL global hook
+    ├── AnimationEngine      # Frame-synced window animations
+    ├── BorderRenderer       # GPU-accelerated focus border
+    ├── SystemInfoService    # Hardware metrics, media, battery, brightness
+    ├── TaskbarManager       # Native taskbar hide/show
+    ├── MonitorManager       # Multi-monitor enumeration
+    └── Configuration/       # TOML config parsing with hot-reload
 ```
 
----
+## Performance Notes
+
+- **DeferWindowPos** — all tiling operations use `BeginDeferWindowPos`/`EndDeferWindowPos` to batch multiple `SetWindowPos` calls into a single screen update
+- **Gaming Mode** — automatically reduces overhead when fullscreen games are detected
+- **SWP_ASYNCWINDOWPOS** — non-blocking window positioning (Komorebi pattern)
+- **Frozen Brushes** — all WPF brushes are frozen for cross-thread safety and GC reduction
+- **Dictionary Lookups** — O(1) window handle lookups instead of LINQ queries in hot paths
+- **WinEvent Hooks** — zero-polling architecture for window tracking (event-driven, not timer-based)
+
+## Credits
+
+Inspired by [Hyprland](https://hyprland.org/) and [Komorebi](https://github.com/LGUG2Z/komorebi). Built with love for the Windows tiling community.
+
+## License
+
+MIT License

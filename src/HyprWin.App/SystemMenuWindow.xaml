@@ -8,14 +8,14 @@
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         SizeToContent="Height"
-        Width="300"
+        Width="320"
         Title="HyprWinSystemMenu">
 
     <Window.Resources>
         <!-- Card style -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background"     Value="#28313244"/>
-            <Setter Property="CornerRadius"   Value="8"/>
+            <Setter Property="CornerRadius"   Value="10"/>
             <Setter Property="Padding"        Value="14,10"/>
             <Setter Property="Margin"         Value="0,0,0,8"/>
         </Style>
@@ -26,24 +26,27 @@
             <Setter Property="FontSize"    Value="9"/>
             <Setter Property="FontWeight"  Value="SemiBold"/>
             <Setter Property="Margin"      Value="0,0,0,6"/>
+            <Setter Property="FontFamily"  Value="Segoe UI"/>
         </Style>
 
         <!-- Value text -->
         <Style x:Key="ValueText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#cdd6f4"/>
             <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Icon text -->
-        <Style x:Key="IconText" TargetType="TextBlock">
+        <!-- Icon using Segoe Fluent Icons -->
+        <Style x:Key="FluentIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            <Setter Property="FontSize"   Value="16"/>
             <Setter Property="Foreground" Value="#89b4fa"/>
-            <Setter Property="FontSize"   Value="14"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin"     Value="0,0,8,0"/>
+            <Setter Property="Margin"     Value="0,0,10,0"/>
         </Style>
 
-        <!-- Control button (prev/play/next) -->
+        <!-- Control button -->
         <ControlTemplate x:Key="FlatBtn" TargetType="Button">
             <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="8,4">
                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -67,8 +70,43 @@
             <Setter Property="BorderBrush"  Value="Transparent"/>
             <Setter Property="Foreground"   Value="#cdd6f4"/>
             <Setter Property="FontSize"     Value="16"/>
+            <Setter Property="FontFamily"   Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
             <Setter Property="Cursor"       Value="Hand"/>
             <Setter Property="Template"     Value="{StaticResource FlatBtn}"/>
+        </Style>
+
+        <!-- Quick Toggle Button (macOS Control Center style) -->
+        <Style x:Key="QuickToggle" TargetType="Button">
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="Height" Value="64"/>
+            <Setter Property="Background"   Value="#28313244"/>
+            <Setter Property="Foreground"   Value="#cdd6f4"/>
+            <Setter Property="BorderBrush"  Value="Transparent"/>
+            <Setter Property="FontSize"     Value="11"/>
+            <Setter Property="FontFamily"   Value="Segoe UI"/>
+            <Setter Property="Cursor"       Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="12" Padding="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="MouseOver">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="Bd"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            To="#40585b70" Duration="0:0:0.1"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Normal"/>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Toggle pill button -->
@@ -94,15 +132,43 @@
     </Window.Resources>
 
     <!-- Outer rounded container -->
-    <Border CornerRadius="12" Padding="12,12,12,4">
+    <Border CornerRadius="14" Padding="12,12,12,4">
         <Border.Background>
             <SolidColorBrush Color="#EF1e1e2e"/>
         </Border.Background>
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="24" ShadowDepth="4" Opacity="0.6"/>
         </Border.Effect>
 
         <StackPanel>
+
+            <!-- ── QUICK TOGGLES (macOS Control Center grid) ──── -->
+            <UniformGrid Rows="1" Columns="4" Margin="0,0,0,8">
+                <Button x:Name="BtnWifi" Style="{StaticResource QuickToggle}" Click="BtnWifi_Click" Margin="0,0,4,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock x:Name="WifiIcon" Text="&#xE701;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" Foreground="#89b4fa"/>
+                        <TextBlock Text="Wi-Fi" FontSize="9" HorizontalAlignment="Center" Foreground="#a6adc8" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnBtToggle" Style="{StaticResource QuickToggle}" Click="BtnBluetooth_Click" Margin="2,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock x:Name="BtIcon" Text="&#xE702;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" Foreground="#89b4fa"/>
+                        <TextBlock x:Name="BtLabel" Text="Bluetooth" FontSize="9" HorizontalAlignment="Center" Foreground="#a6adc8" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnFocus" Style="{StaticResource QuickToggle}" Click="BtnFocus_Click" Margin="2,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock x:Name="FocusIcon" Text="&#xEC46;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" Foreground="#a6adc8"/>
+                        <TextBlock Text="Focus" FontSize="9" HorizontalAlignment="Center" Foreground="#a6adc8" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnNearby" Style="{StaticResource QuickToggle}" Click="BtnNearby_Click" Margin="4,0,0,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="&#xEC27;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" Foreground="#a6adc8"/>
+                        <TextBlock Text="Nearby" FontSize="9" HorizontalAlignment="Center" Foreground="#a6adc8" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
 
             <!-- ── NOW PLAYING ─────────────────────────────────── -->
             <Border Style="{StaticResource Card}" x:Name="MediaCard">
@@ -114,15 +180,14 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Album art placeholder -->
                         <Border Grid.Column="0" Width="40" Height="40"
-                                Background="#40585b70" CornerRadius="6"
+                                Background="#40585b70" CornerRadius="8"
                                 VerticalAlignment="Center">
-                            <TextBlock Text="♪" Foreground="#89b4fa" FontSize="18"
+                            <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                       Foreground="#89b4fa" FontSize="18"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
 
-                        <!-- Title + Artist -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock x:Name="MediaTitle"
                                        Style="{StaticResource ValueText}"
@@ -131,30 +196,56 @@
                                        Text="Nothing playing"/>
                             <TextBlock x:Name="MediaArtist"
                                        Foreground="#7f849c" FontSize="11"
+                                       FontFamily="Segoe UI"
                                        TextTrimming="CharacterEllipsis"
                                        Text=""/>
                         </StackPanel>
                     </Grid>
 
-                    <!-- Controls -->
                     <StackPanel Orientation="Horizontal"
                                 HorizontalAlignment="Center"
                                 Margin="0,10,0,0">
-                        <Button x:Name="BtnPrev" Content="⏮" Style="{StaticResource MediaBtn}"
+                        <Button x:Name="BtnPrev" Content="&#xE892;" Style="{StaticResource MediaBtn}"
                                 Click="BtnPrev_Click" ToolTip="Previous"/>
-                        <Button x:Name="BtnPlayPause" Content="▶" Style="{StaticResource MediaBtn}"
+                        <Button x:Name="BtnPlayPause" Content="&#xE768;" Style="{StaticResource MediaBtn}"
                                 Click="BtnPlayPause_Click" ToolTip="Play / Pause"
-                                Margin="12,0" FontSize="18"/>
-                        <Button x:Name="BtnNext" Content="⏭" Style="{StaticResource MediaBtn}"
+                                Margin="12,0" FontSize="20"/>
+                        <Button x:Name="BtnNext" Content="&#xE893;" Style="{StaticResource MediaBtn}"
                                 Click="BtnNext_Click" ToolTip="Next"/>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ── BRIGHTNESS ─────────────────────────────────── -->
+            <Border Style="{StaticResource Card}" x:Name="BrightnessCard">
+                <StackPanel>
+                    <TextBlock Text="DISPLAY" Style="{StaticResource SectionLabel}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="36"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource FluentIcon}" Text="&#xE706;" Margin="0,0,8,0"/>
+                        <Slider x:Name="BrightnessSlider" Grid.Column="1"
+                                Minimum="0" Maximum="100" SmallChange="1" LargeChange="10"
+                                VerticalAlignment="Center"
+                                ValueChanged="BrightnessSlider_ValueChanged">
+                            <Slider.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#f9e2af"/>
+                            </Slider.Resources>
+                        </Slider>
+                        <TextBlock x:Name="BrightnessLabel" Grid.Column="2"
+                                   Style="{StaticResource ValueText}" HorizontalAlignment="Right"
+                                   Margin="8,0,0,0" Text="--"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
             <!-- ── VOLUME ──────────────────────────────────────── -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="VOLUME" Style="{StaticResource SectionLabel}"/>
+                    <TextBlock Text="SOUND" Style="{StaticResource SectionLabel}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -163,7 +254,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Button x:Name="BtnMute" Grid.Column="0"
-                                Content="🔊" Style="{StaticResource MediaBtn}"
+                                Content="&#xE767;" Style="{StaticResource MediaBtn}"
                                 FontSize="16" Click="BtnMute_Click"
                                 Margin="0,0,8,0"/>
 
@@ -191,59 +282,47 @@
                 <StackPanel>
                     <TextBlock Text="NETWORK" Style="{StaticResource SectionLabel}"/>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="NetIcon" Style="{StaticResource IconText}" Text="🌐"/>
+                        <TextBlock x:Name="NetIcon" Style="{StaticResource FluentIcon}" Text="&#xE774;"/>
                         <StackPanel>
                             <TextBlock x:Name="NetName"
                                        Style="{StaticResource ValueText}"
                                        FontWeight="SemiBold"
                                        Text="Not connected"/>
                             <TextBlock x:Name="NetType"
-                                       Foreground="#7f849c" FontSize="11"
+                                       Foreground="#7f849c" FontSize="11" FontFamily="Segoe UI"
                                        Text=""/>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- ── BLUETOOTH ───────────────────────────────────── -->
-            <Border Style="{StaticResource Card}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Style="{StaticResource IconText}" Text="🔵"/>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Style="{StaticResource ValueText}"
-                                   FontWeight="SemiBold" Text="Bluetooth"/>
-                        <TextBlock x:Name="BtStatus"
-                                   Foreground="#7f849c" FontSize="11" Text="Unavailable"/>
+            <!-- ── BATTERY ─────────────────────────────────────── -->
+            <Border Style="{StaticResource Card}" x:Name="BatteryCard" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="BATTERY" Style="{StaticResource SectionLabel}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="BatteryIcon" Style="{StaticResource FluentIcon}" Text="&#xEBA7;"/>
+                        <StackPanel>
+                            <TextBlock x:Name="BatteryPctText"
+                                       Style="{StaticResource ValueText}" FontWeight="SemiBold"
+                                       Text="--"/>
+                            <TextBlock x:Name="BatteryStatus"
+                                       Foreground="#7f849c" FontSize="11" FontFamily="Segoe UI"
+                                       Text=""/>
+                        </StackPanel>
                     </StackPanel>
-                    <Button x:Name="BtnBluetooth" Grid.Column="2"
-                            Style="{StaticResource ToggleBtn}"
-                            Content="OFF"
-                            Click="BtnBluetooth_Click"/>
-                </Grid>
+                </StackPanel>
             </Border>
 
-            <!-- ── CLOSE ROW ───────────────────────────────────── -->
-            <Button Content="✕  Close"
-                    HorizontalAlignment="Right"
-                    Background="Transparent" BorderBrush="Transparent"
-                    Foreground="#7f849c" FontSize="11"
-                    Cursor="Hand" Margin="0,0,0,8"
-                    Click="BtnClose_Click">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                Padding="8,4" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
+            <!-- ── QUICK ACTIONS ROW ──────────────────────────── -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,8">
+                <Button Content="&#xE7F8;  Display" Style="{StaticResource ToggleBtn}" Click="BtnDisplay_Click" Margin="0,0,6,0"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11"/>
+                <Button Content="&#xE713;  Settings" Style="{StaticResource ToggleBtn}" Click="BtnSettings_Click" Margin="0,0,6,0"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11"/>
+                <Button x:Name="BtnPower" Content="&#xE7E8;  Power" Style="{StaticResource ToggleBtn}" Click="BtnPower_Click"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11"/>
+            </StackPanel>
 
         </StackPanel>
     </Border>
