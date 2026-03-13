@@ -80,8 +80,8 @@ public sealed class KeyboardHook : IDisposable
 
         // Clear any stuck Win key state from a previous session
         _winDown = false;
-        NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
-        NativeMethods.keybd_event((byte)NativeMethods.VK_RWIN, 0, NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
+        NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_EXTENDEDKEY | NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
+        NativeMethods.keybd_event((byte)NativeMethods.VK_RWIN, 0, NativeMethods.KEYEVENTF_EXTENDEDKEY | NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
 
         Logger.Instance.Info("Low-level keyboard hook installed");
     }
@@ -347,8 +347,8 @@ public sealed class KeyboardHook : IDisposable
     /// </summary>
     private static void InjectWinCombo(int vk, KeybindParser.Modifiers mods)
     {
-        // Press Win
-        NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, 0, UIntPtr.Zero);
+        // Press Win (extended key flag required for system shortcuts like Win+Space)
+        NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);
         try
         {
             // Press modifiers if needed
@@ -375,7 +375,7 @@ public sealed class KeyboardHook : IDisposable
         {
             // ALWAYS release Win — even if an exception occurs mid-injection,
             // we must not leave the OS with Win key stuck as pressed.
-            NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
+            NativeMethods.keybd_event((byte)NativeMethods.VK_LWIN, 0, NativeMethods.KEYEVENTF_EXTENDEDKEY | NativeMethods.KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
     }
 

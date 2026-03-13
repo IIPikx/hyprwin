@@ -150,6 +150,7 @@ public static class NativeMethods
     public const int KEY_PRESSED = 0x8000;
 
     // Keyboard event flags
+    public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
     public const uint KEYEVENTF_KEYUP = 0x0002;
 
     // Low-level keyboard hook flags

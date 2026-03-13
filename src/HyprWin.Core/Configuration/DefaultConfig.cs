@@ -224,9 +224,22 @@ command  = "https://"
 # Programs and window classes to exclude from tiling/management.
 # These windows will not be moved, resized, or tiled by HyprWin.
 [exclude]
-process_names = ["Taskmgr", "3CXDesktopApp", "3CXSoftphone", "mstsc", "msrdc", "3CXWin8Phone", "3CX", "3CX - Lucas Hilka"]
+process_names = [
+    "Taskmgr", "3CXDesktopApp", "3CXSoftphone", "mstsc", "msrdc",
+    "3CXWin8Phone", "3CX", "3CX - Lucas Hilka",
+    # Game launchers & overlays
+    "steam", "steamwebhelper", "GameOverlayUI",
+    "EpicGamesLauncher", "EpicWebHelper",
+    "UbisoftConnect", "upc",
+    "EADesktop", "EABackgroundService", "EALauncher", "Origin", "OriginWebHelperService",
+    "Battle.net",
+    # Common game anti-cheat / overlay processes
+    "EasyAntiCheat", "BEService", "vgc",
+    "GOG Galaxy"
+]
 # Add process names (without .exe) to exclude from tiling, e.g. "vlc", "obs64", "Discord"
 # mstsc / msrdc = Remote Desktop Connection windows (excluded to prevent layout interference)
+# Game launchers are excluded so games launched through them don't get tiled or bordered
 class_names   = []
 # Add window class names to exclude, e.g. "TaskManagerWindow", "MozillaDialogClass"
 """;

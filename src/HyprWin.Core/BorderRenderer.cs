@@ -127,6 +127,18 @@ public sealed class BorderRenderer : IDisposable
     }
 
     /// <summary>
+    /// Hide the border overlay (e.g. when a fullscreen game is focused).
+    /// </summary>
+    public void Hide()
+    {
+        if (_borderHwnd == IntPtr.Zero) return;
+        NativeMethods.SetWindowPos(_borderHwnd, NativeMethods.HWND_TOPMOST,
+            -10000, -10000, 0, 0,
+            NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+        _trackedHwnd = IntPtr.Zero;
+    }
+
+    /// <summary>
     /// WinEvent callback — fires immediately when any window changes position/size.
     /// We filter for only our tracked window to minimize overhead.
     /// </summary>

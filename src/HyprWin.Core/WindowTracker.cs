@@ -432,6 +432,29 @@ public sealed class WindowTracker : IDisposable
     }
 
     /// <summary>
+    /// Detects if a window is in fullscreen (borderless/exclusive) mode by checking
+    /// whether it covers the entire monitor. Used to auto-float game windows and
+    /// hide the border overlay.
+    /// </summary>
+    public static bool IsFullscreenWindow(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !NativeMethods.IsWindow(hwnd)) return false;
+
+        if (!NativeMethods.GetWindowRect(hwnd, out var wndRect)) return false;
+
+        var hMon = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        if (hMon == IntPtr.Zero) return false;
+
+        var mi = new NativeMethods.MONITORINFOEX { cbSize = 104 };
+        if (!NativeMethods.GetMonitorInfo(hMon, ref mi)) return false;
+
+        var screen = mi.rcMonitor;
+        // Window covers entire monitor (±2px tolerance for DPI rounding)
+        return wndRect.Left <= screen.Left + 2 && wndRect.Top <= screen.Top + 2 &&
+               wndRect.Right >= screen.Right - 2 && wndRect.Bottom >= screen.Bottom - 2;
+    }
+
+    /// <summary>
     /// Detects Picture-in-Picture windows by title pattern.
     /// Browsers and media players use titles like "Picture in Picture" or "Picture-in-Picture".
     /// </summary>

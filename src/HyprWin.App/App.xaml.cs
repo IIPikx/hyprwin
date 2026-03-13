@@ -401,6 +401,13 @@ public partial class App : Application
 
     private void OnWindowAdded(ManagedWindow window)
     {
+        // Auto-float fullscreen windows (games, video players) so they aren't tiled
+        if (WindowTracker.IsFullscreenWindow(window.Handle))
+        {
+            window.IsFloating = true;
+            Logger.Instance.Debug($"Auto-floated fullscreen window on create: {window}");
+        }
+
         _workspaceManager.AddWindowToActiveWorkspace(window);
 
         // Apply window rules (Hyprland windowrule)
@@ -445,7 +452,24 @@ public partial class App : Application
     private void OnFocusChanged(IntPtr hwnd)
     {
         _workspaceManager.UpdateFocus(hwnd);
-        _borderRenderer?.TrackWindow(hwnd);
+
+        // Hide border and skip tiling for fullscreen windows (games, video players)
+        if (WindowTracker.IsFullscreenWindow(hwnd))
+        {
+            _borderRenderer?.Hide();
+
+            // Auto-float the window so the tiling engine ignores it
+            var mw = _windowTracker.GetWindow(hwnd);
+            if (mw != null && !mw.IsFloating)
+            {
+                mw.IsFloating = true;
+                Logger.Instance.Debug($"Auto-floated fullscreen window: {mw}");
+            }
+        }
+        else
+        {
+            _borderRenderer?.TrackWindow(hwnd);
+        }
 
         // Update workspace indicators on all top bars
         foreach (var bar in _topBarWindows)
