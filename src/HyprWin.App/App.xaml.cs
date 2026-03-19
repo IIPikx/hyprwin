@@ -158,7 +158,9 @@ public partial class App : Application
             _windowTracker = new WindowTracker();
             _windowTracker.SetExclusions(
                 config.Exclude.ProcessNames,
-                config.Exclude.ClassNames);
+                config.Exclude.ClassNames,
+                config.Exclude.AllowPopupProcessNames,
+                config.Exclude.AllowPopupClassNames);
 
             // 6. Initialize workspace manager
             _workspaceManager = new WorkspaceManager(_monitorManager, _windowTracker);
@@ -396,6 +398,8 @@ public partial class App : Application
 
         // Desktop actions
         _keyboardHook.RegisterKeybind(kb.MinimizeAll, _dispatcher.MinimizeAll);
+        _keyboardHook.RegisterKeybind(kb.MinimizeWindow, _dispatcher.MinimizeActiveWindow);
+        _keyboardHook.RegisterKeybind(kb.RestoreMinimized, _dispatcher.RestoreMinimizedOnActiveWorkspace);
 
         // Workspace mirror/flip
         _keyboardHook.RegisterKeybind(kb.SwapHorizontal, _dispatcher.SwapHorizontal);
@@ -488,7 +492,7 @@ public partial class App : Application
 
             // Auto-float the window so the tiling engine ignores it
             var mw = _windowTracker.GetWindow(hwnd);
-            if (mw != null && !mw.IsFloating)
+            if (mw != null && !mw.IsFloating && !mw.IsFullscreen)
             {
                 mw.IsFloating = true;
                 Logger.Instance.Debug($"Auto-floated fullscreen window: {mw}");
@@ -539,7 +543,9 @@ public partial class App : Application
                 // Update exclusions
                 _windowTracker?.SetExclusions(
                     config.Exclude.ProcessNames,
-                    config.Exclude.ClassNames);
+                    config.Exclude.ClassNames,
+                    config.Exclude.AllowPopupProcessNames,
+                    config.Exclude.AllowPopupClassNames);
 
                 // Sync autostart registry entry
                 AutostartManager.SetEnabled(config.General.Autostart);

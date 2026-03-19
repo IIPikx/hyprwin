@@ -102,7 +102,9 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 | `SUPER + Q` | Close focused window (proactive BSP removal) |
 | `SUPER + T` | Toggle floating |
 | `SUPER + F` | Toggle fullscreen |
-| `SUPER + D` | Minimize all windows on workspace |
+| `SUPER + M` | Minimize focused window |
+| `SUPER + SHIFT + M` | Restore minimized windows on the active workspace |
+| `SUPER + D` | Toggle minimize/restore all windows on the active workspace |
 
 ### Workspaces
 | Shortcut | Action |

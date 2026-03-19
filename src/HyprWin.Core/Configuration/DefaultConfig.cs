@@ -55,6 +55,8 @@ launch_taskmgr = "CTRL+SHIFT+ESCAPE"  # Task Manager (explicit — LL hook block
 launch_settings = "SUPER+I"            # Windows Settings
 launch_color_picker = "SUPER+SHIFT+C"  # PowerToys Color Picker
 minimize_all = "SUPER+D"               # Minimize all windows on current workspace
+minimize_window = "SUPER+M"            # Minimize active window
+restore_minimized = "SUPER+SHIFT+M"    # Restore minimized windows on current workspace
 swap_horizontal = "SUPER+SHIFT+X"      # Mirror windows left↔right in workspace
 swap_vertical   = "SUPER+SHIFT+Y"      # Mirror windows top↔bottom in workspace
 rotate_split_vertical   = "SUPER+Y"    # Set active window's split to side-by-side
@@ -83,6 +85,7 @@ keys = [
 
 # ─────────────────────── Animations ───────────────────────
 [animations]
+preset                 = "custom"         # Built-in presets: custom, snappy, smooth, energetic, minimal
 enabled                = true
 window_open_duration_ms  = 200    # Fade/slide-in duration for new windows
 window_close_duration_ms = 150    # Fade-out duration when closing
@@ -121,13 +124,21 @@ rounding    = 8    # Corner radius in pixels
 
 # ─────────────────────── Theme ───────────────────────
 # Colors in hex format. Catppuccin Mocha palette by default.
+# Use theme_preset to quickly switch all colors at once.
+# Available presets: Catppuccin Mocha, Catppuccin Macchiato, Catppuccin Latte,
+#   Tokyo Night, Tokyo Night Storm, Gruvbox Dark, Gruvbox Light, Nord, Dracula,
+#   Rosé Pine, Rosé Pine Moon, One Dark, Solarized Dark, Everforest Dark,
+#   Kanagawa, Ayu Dark, Custom
+# Set to "Custom" to use the individual color values below.
 [theme]
+theme_preset    = "Catppuccin Mocha"
 border_active   = "#f77a26"    # Mauve — focused window border
 border_inactive = "#45475a"    # Surface1 — unfocused window border
 background      = "#1e1e2e"    # Base — general background
 top_bar_bg      = "#181825"    # Mantle — top bar background
 top_bar_fg      = "#cdd6f4"    # Text — top bar foreground text
 top_bar_accent  = "#89b4fa"    # Blue — accent highlights
+icon_theme      = "Emoji"      # Icon style: Emoji, Nerd Font, Minimal, Arrows
 
 # ─────────────────────── Top Bar ───────────────────────
 [top_bar]
@@ -267,5 +278,9 @@ process_names = [
 # Game launchers are excluded so games launched through them don't get tiled or bordered
 class_names   = []
 # Add window class names to exclude, e.g. "TaskManagerWindow", "MozillaDialogClass"
+allow_popup_process_names = []
+# Optional allowlist: popup/dialog windows from these processes may be managed by HyprWin.
+allow_popup_class_names = []
+# Optional allowlist: popup/dialog windows with these classes may be managed by HyprWin.
 """;
 }

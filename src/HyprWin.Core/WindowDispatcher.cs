@@ -15,6 +15,9 @@ public sealed class WindowDispatcher
     private readonly MonitorManager _monitorManager;
     private string _terminalCommand = "wt.exe";
     private string _workspaceMode = "monitor_bound"; // "monitor_bound" or "virtual"
+    private readonly Dictionary<IntPtr, bool> _fullscreenWasFloating = new();
+    private readonly Dictionary<(int MonitorIndex, int WorkspaceId), HashSet<IntPtr>> _minimizeAllBatches = new();
+    private (int MonitorIndex, int WorkspaceId)? _lastMinimizeAllWorkspace;
 
     public WindowDispatcher(
         WindowTracker windowTracker,
@@ -404,10 +407,14 @@ public sealed class WindowDispatcher
     {
         try
         {
-            var hwnd = NativeMethods.GetForegroundWindow();
+            var foreground = NativeMethods.GetForegroundWindow();
+            if (foreground == IntPtr.Zero) return;
+
+            var hwnd = ResolveCloseTarget(foreground);
             if (hwnd == IntPtr.Zero) return;
 
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            bool allowForceKill = ShouldAllowForceKillFallback(hwnd, pid);
 
             // Proactive removal: take the window out of the BSP tree and workspace
             // BEFORE sending WM_CLOSE. This eliminates "ghost node" bugs where the
@@ -417,7 +424,8 @@ public sealed class WindowDispatcher
             _workspaceManager.RemoveWindow(hwnd);
 
             NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd} (pid={pid}), proactively removed from tiling");
+            Logger.Instance.Debug($"Sent WM_CLOSE to {hwnd} (pid={pid}, forceKillFallback={allowForceKill}), proactively removed from tiling");
+
 
             if (pid != 0)
             {
@@ -426,11 +434,28 @@ public sealed class WindowDispatcher
                     await Task.Delay(2000);
                     if (!NativeMethods.IsWindow(hwnd)) return;
 
+                    // Owned dialog might ignore WM_CLOSE while owner is waiting;
+                    // ask the owner to close once before escalating.
+                    var owner = NativeMethods.GetOwner(hwnd);
+                    if (owner != IntPtr.Zero && NativeMethods.IsWindow(owner))
+                    {
+                        NativeMethods.PostMessage(owner, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                    }
+
                     // Only force-kill if the window is truly not responding.
                     // If it's alive but responsive (e.g. showing a save dialog),
-                    // leave it alone — user is interacting with it, and it will
-                    // be re-discovered by the foreground hook when it gains focus.
-                    if (!NativeMethods.IsHungAppWindow(hwnd)) return;
+                    // leave it alone — user is interacting with it.
+                    if (!NativeMethods.IsHungAppWindow(hwnd))
+                    {
+                        Logger.Instance.Warn($"Window {hwnd} ignored WM_CLOSE but is still responsive; skipping force-kill");
+                        return;
+                    }
+
+                    if (!allowForceKill)
+                    {
+                        Logger.Instance.Warn($"Window {hwnd} is hung but force-kill is disabled for this process type");
+                        return;
+                    }
 
                     try
                     {
@@ -524,12 +549,23 @@ public sealed class WindowDispatcher
             var ws = _workspaceManager.GetActiveWorkspace(monIdx);
             if (ws == null) return;
 
-            window.IsFullscreen = !window.IsFullscreen;
-
-            if (window.IsFullscreen)
+            bool enteringFullscreen = !window.IsFullscreen;
+            if (enteringFullscreen)
             {
                 NativeMethods.GetWindowRect(hwnd, out var rect);
                 window.SavedBounds = rect;
+                _fullscreenWasFloating[hwnd] = window.IsFloating;
+
+                window.IsFullscreen = true;
+
+                // Make fullscreen windows effectively floating for tiling purposes.
+                // For tiled windows, remove from BSP and retile remaining windows.
+                if (!window.IsFloating)
+                {
+                    _tilingEngine.RemoveWindow(ws, hwnd);
+                    _tilingEngine.TileWorkspace(ws, animate: false);
+                }
+                window.IsFloating = true;
 
                 // Fill the entire monitor bounds for true fullscreen (covers top bar)
                 var mon = _monitorManager.GetByIndex(monIdx);
@@ -548,12 +584,31 @@ public sealed class WindowDispatcher
             else
             {
                 window.IsFullscreen = false;
-                // Restore from topmost and re-add to tiling
+                bool wasFloatingBeforeFullscreen = _fullscreenWasFloating.TryGetValue(hwnd, out var wasFloating) && wasFloating;
+                _fullscreenWasFloating.Remove(hwnd);
+
+                // Restore from topmost
                 NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_NOTOPMOST,
                     0, 0, 0, 0,
                     NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
-                _tilingEngine.RebuildTree(ws);
-                _tilingEngine.TileWorkspace(ws);
+
+                if (window.SavedBounds.HasValue)
+                    TilingEngine.ApplyWindowPosition(hwnd, window.SavedBounds.Value);
+
+                if (wasFloatingBeforeFullscreen)
+                {
+                    // Return to floating mode and keep pre-fullscreen bounds.
+                    window.IsFloating = true;
+                }
+                else
+                {
+                    // Return to tiled mode and reinsert into the BSP tree.
+                    window.IsFloating = false;
+                    _tilingEngine.SyncTree(ws);
+                    _tilingEngine.AddWindow(ws, hwnd);
+                    _tilingEngine.TileWorkspace(ws, animate: false);
+                }
+
                 Logger.Instance.Info($"Window {hwnd} exited fullscreen");
             }
         }
@@ -695,10 +750,22 @@ public sealed class WindowDispatcher
     {
         try
         {
-            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
-            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            var ws = ResolveActiveWorkspaceForDesktopAction();
             if (ws == null) return;
+            var key = (ws.MonitorIndex, ws.Id);
+            _lastMinimizeAllWorkspace = key;
 
+            // Toggle behavior: if we still have a previous minimize-all batch on this workspace,
+            // restore that exact batch instead of minimizing again.
+            if (_minimizeAllBatches.TryGetValue(key, out var existingBatch) &&
+                RestoreWindowBatch(ws, existingBatch) > 0)
+            {
+                _minimizeAllBatches.Remove(key);
+                Logger.Instance.Debug($"MinimizeAll: restored previous batch on workspace {ws.Id}");
+                return;
+            }
+
+            var newlyMinimized = new HashSet<IntPtr>();
             foreach (var w in ws.Windows)
             {
                 if (!w.IsMinimized && NativeMethods.IsWindow(w.Handle)
@@ -706,14 +773,76 @@ public sealed class WindowDispatcher
                 {
                     NativeMethods.ShowWindow(w.Handle, NativeMethods.SW_MINIMIZE);
                     w.IsMinimized = true;
+                    newlyMinimized.Add(w.Handle);
                 }
             }
 
-            Logger.Instance.Debug($"MinimizeAll: minimized {ws.Windows.Count} window(s) on workspace {ws.Id}");
+            if (newlyMinimized.Count > 0)
+                _minimizeAllBatches[key] = newlyMinimized;
+            else
+                _minimizeAllBatches.Remove(key);
+
+            Logger.Instance.Debug($"MinimizeAll: minimized {newlyMinimized.Count} window(s) on workspace {ws.Id}");
         }
         catch (Exception ex)
         {
             Logger.Instance.Error("Error in MinimizeAll", ex);
+        }
+    }
+
+    /// <summary>
+    /// Minimize the currently focused window (SUPER+M).
+    /// </summary>
+    public void MinimizeActiveWindow()
+    {
+        try
+        {
+            var hwnd = NativeMethods.GetForegroundWindow();
+            if (hwnd == IntPtr.Zero || !NativeMethods.IsWindow(hwnd)) return;
+
+            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_MINIMIZE);
+            var window = _windowTracker.GetWindow(hwnd);
+            if (window != null) window.IsMinimized = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in MinimizeActiveWindow", ex);
+        }
+    }
+
+    /// <summary>
+    /// Restore all minimized windows on the currently active workspace (SUPER+SHIFT+M).
+    /// </summary>
+    public void RestoreMinimizedOnActiveWorkspace()
+    {
+        try
+        {
+            int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (ws == null) return;
+
+            int restored = 0;
+            foreach (var w in ws.Windows)
+            {
+                if (!NativeMethods.IsWindow(w.Handle)) continue;
+                if (!w.IsMinimized && !NativeMethods.IsIconic(w.Handle)) continue;
+
+                NativeMethods.ShowWindow(w.Handle, NativeMethods.SW_RESTORE);
+                w.IsMinimized = false;
+                restored++;
+            }
+
+            _minimizeAllBatches.Remove((ws.MonitorIndex, ws.Id));
+            if (restored > 0)
+            {
+                _tilingEngine.SyncTree(ws);
+                _tilingEngine.TileWorkspace(ws, animate: false);
+            }
+            Logger.Instance.Debug($"RestoreMinimizedOnActiveWorkspace: restored {restored} window(s) on workspace {ws.Id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error("Error in RestoreMinimizedOnActiveWorkspace", ex);
         }
     }
 
@@ -888,5 +1017,93 @@ public sealed class WindowDispatcher
         }
 
         return best;
+    }
+
+    private Workspace? ResolveActiveWorkspaceForDesktopAction()
+    {
+        var fg = NativeMethods.GetForegroundWindow();
+        if (fg != IntPtr.Zero)
+        {
+            var fgWs = _workspaceManager.FindWorkspaceForWindow(fg);
+            if (fgWs != null) return fgWs;
+        }
+
+        if (_lastMinimizeAllWorkspace is { } last)
+        {
+            var lastWs = _workspaceManager.GetWorkspace(last.MonitorIndex, last.WorkspaceId);
+            if (lastWs != null) return lastWs;
+        }
+
+        int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+        return _workspaceManager.GetActiveWorkspace(monIdx);
+    }
+
+    private static IntPtr ResolveCloseTarget(IntPtr foreground)
+    {
+        if (foreground == IntPtr.Zero || !NativeMethods.IsWindow(foreground))
+            return IntPtr.Zero;
+
+        // If the focused window is already a dialog/popup, close it directly.
+        if (WindowTracker.IsPopupOrDialog(foreground))
+            return foreground;
+
+        IntPtr ownedPopup = IntPtr.Zero;
+        NativeMethods.EnumWindows((hwnd, _) =>
+        {
+            if (hwnd == foreground) return true;
+            if (NativeMethods.GetOwner(hwnd) != foreground) return true;
+            if (!NativeMethods.IsWindow(hwnd) || !NativeMethods.IsWindowVisible(hwnd)) return true;
+
+            ownedPopup = hwnd;
+            // Prefer standard dialogs if one exists.
+            return NativeMethods.GetWindowClassName(hwnd) != "#32770";
+        }, IntPtr.Zero);
+
+        return ownedPopup != IntPtr.Zero ? ownedPopup : foreground;
+    }
+
+    private static bool ShouldAllowForceKillFallback(IntPtr hwnd, uint pid)
+    {
+        if (pid == 0) return false;
+        if (NativeMethods.GetOwner(hwnd) != IntPtr.Zero) return false;
+        if (NativeMethods.GetWindowClassName(hwnd) == "#32770") return false;
+
+        try
+        {
+            var proc = Process.GetProcessById((int)pid);
+            if (proc.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        catch
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private int RestoreWindowBatch(Workspace ws, IEnumerable<IntPtr> handles)
+    {
+        int restored = 0;
+        foreach (var hwnd in handles)
+        {
+            if (!NativeMethods.IsWindow(hwnd)) continue;
+
+            var tracked = ws.Windows.FirstOrDefault(w => w.Handle == hwnd);
+            if (tracked == null) continue;
+            if (!tracked.IsMinimized && !NativeMethods.IsIconic(hwnd)) continue;
+
+            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_RESTORE);
+            tracked.IsMinimized = false;
+            restored++;
+        }
+
+        if (restored > 0)
+        {
+            _tilingEngine.SyncTree(ws);
+            _tilingEngine.TileWorkspace(ws, animate: false);
+        }
+
+        return restored;
     }
 }

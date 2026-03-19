@@ -313,24 +313,26 @@ public partial class TopBarWindow : Window
 
     private void ApplySystemMetrics(SystemMetrics m)
     {
+        var icons = ThemePresets.FindIconTheme(_config.Theme.IconTheme) ?? ThemePresets.IconThemes[0];
+
         if (CpuText.Visibility == Visibility.Visible)
-            CpuText.Text = $" CPU {m.CpuUsagePct:F0}%";
+            CpuText.Text = $" {icons.Cpu} {m.CpuUsagePct:F0}%";
 
         if (CpuTempText.Visibility == Visibility.Visible)
-            CpuTempText.Text = m.CpuTempC > 0 ? $" {m.CpuTempC:F0}°C" : " --°C";
+            CpuTempText.Text = m.CpuTempC > 0 ? $" {icons.Temp}{m.CpuTempC:F0}°C" : " --°C";
 
         if (GpuText.Visibility == Visibility.Visible)
-            GpuText.Text = m.GpuUsagePct >= 0 ? $" GPU {m.GpuUsagePct:F0}%" : " GPU --";
+            GpuText.Text = m.GpuUsagePct >= 0 ? $" {icons.Gpu} {m.GpuUsagePct:F0}%" : $" {icons.Gpu} --";
 
         if (GpuTempText.Visibility == Visibility.Visible)
-            GpuTempText.Text = m.GpuTempC > 0 ? $" {m.GpuTempC:F0}°C" : " --°C";
+            GpuTempText.Text = m.GpuTempC > 0 ? $" {icons.Temp}{m.GpuTempC:F0}°C" : " --°C";
 
         if (MemoryText.Visibility == Visibility.Visible)
-            MemoryText.Text = $" RAM {m.RamUsagePct:F0}%";
+            MemoryText.Text = $" {icons.Ram} {m.RamUsagePct:F0}%";
 
         if (VolumeText.Visibility == Visibility.Visible)
         {
-            string icon = m.IsMuted ? "🔇" : "🔊";
+            string icon = m.IsMuted ? icons.VolumeMuted : icons.VolumeOn;
             VolumeText.Text = $" {icon} {m.Volume}%";
         }
 
@@ -338,7 +340,7 @@ public partial class TopBarWindow : Window
         {
             string down = FormatBytesRate(m.NetDownBytesPerSec);
             string up   = FormatBytesRate(m.NetUpBytesPerSec);
-            NetworkText.Text = $" ↓{down} ↑{up}";
+            NetworkText.Text = $" {icons.NetDown}{down} {icons.NetUp}{up}";
         }
 
         if (BatteryText.Visibility == Visibility.Visible)
@@ -372,9 +374,14 @@ public partial class TopBarWindow : Window
         var accentBrush = BrushFromHex(_config.Theme.TopBarAccent);
         var fgBrush = BrushFromHex(_config.Theme.TopBarFg);
         var fontFamily = new FontFamily(_config.TopBar.Font + ", Segoe UI");
+        var icons = ThemePresets.FindIconTheme(_config.Theme.IconTheme);
 
         int activeWsIndex = _workspaceManager.GetActiveWorkspaceIndex(_monitor.Index);
         int count = wsConfig.ShowCount;
+
+        // Use icon theme indicators if available, otherwise fall back to config
+        string activeInd = icons?.ActiveWorkspace ?? wsConfig.ActiveIndicator;
+        string inactiveInd = icons?.InactiveWorkspace ?? wsConfig.InactiveIndicator;
 
         var items = new List<WorkspaceItem>();
         for (int i = 0; i < count; i++)
@@ -383,7 +390,7 @@ public partial class TopBarWindow : Window
             items.Add(new WorkspaceItem
             {
                 Index = i,
-                Indicator = isActive ? wsConfig.ActiveIndicator : wsConfig.InactiveIndicator,
+                Indicator = isActive ? activeInd : inactiveInd,
                 Foreground = isActive ? accentBrush : fgBrush,
                 FontSize = _config.TopBar.FontSize,
                 FontFamily = fontFamily,
@@ -526,8 +533,7 @@ public partial class TopBarWindow : Window
     {
         try
         {
-            var settingsWindow = new SettingsWindow(_configPath, _config);
-            settingsWindow.Show();
+            SettingsWindow.ShowSingleton(_configPath, _config);
         }
         catch (Exception ex)
         {

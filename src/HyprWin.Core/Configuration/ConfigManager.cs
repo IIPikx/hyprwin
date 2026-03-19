@@ -240,6 +240,8 @@ public sealed class ConfigManager : IDisposable
             RotateSplitVertical = GetString(t, "rotate_split_vertical", "SUPER+X"),
             RotateSplitHorizontal = GetString(t, "rotate_split_horizontal", "SUPER+Y"),
             MinimizeAll = GetString(t, "minimize_all", "SUPER+D"),
+            MinimizeWindow = GetString(t, "minimize_window", "SUPER+M"),
+            RestoreMinimized = GetString(t, "restore_minimized", "SUPER+SHIFT+M"),
         };
     }
 
@@ -288,6 +290,7 @@ public sealed class ConfigManager : IDisposable
 
         return new AnimationsConfig
         {
+            Preset = GetString(t, "preset", "custom"),
             Enabled = GetBool(t, "enabled", true),
             WindowOpenDurationMs = GetInt(t, "window_open_duration_ms", 200),
             WindowCloseDurationMs = GetInt(t, "window_close_duration_ms", 150),
@@ -319,12 +322,14 @@ public sealed class ConfigManager : IDisposable
 
         return new ThemeConfig
         {
+            ThemePreset = GetString(t, "theme_preset", "Catppuccin Mocha"),
             BorderActive = GetString(t, "border_active", "#cba6f7"),
             BorderInactive = GetString(t, "border_inactive", "#45475a"),
             Background = GetString(t, "background", "#1e1e2e"),
             TopBarBg = GetString(t, "top_bar_bg", "#181825"),
             TopBarFg = GetString(t, "top_bar_fg", "#cdd6f4"),
             TopBarAccent = GetString(t, "top_bar_accent", "#89b4fa"),
+            IconTheme = GetString(t, "icon_theme", "Emoji"),
         };
     }
 
@@ -541,6 +546,8 @@ public sealed class ConfigManager : IDisposable
 
         var processNames = new List<string>();
         var classNames = new List<string>();
+        var allowPopupProcessNames = new List<string>();
+        var allowPopupClassNames = new List<string>();
 
         if (t.TryGetValue("process_names", out var pObj) && pObj is TomlArray pArr)
             processNames = pArr.OfType<string>().ToList();
@@ -548,10 +555,18 @@ public sealed class ConfigManager : IDisposable
         if (t.TryGetValue("class_names", out var cObj) && cObj is TomlArray cArr)
             classNames = cArr.OfType<string>().ToList();
 
+        if (t.TryGetValue("allow_popup_process_names", out var apObj) && apObj is TomlArray apArr)
+            allowPopupProcessNames = apArr.OfType<string>().ToList();
+
+        if (t.TryGetValue("allow_popup_class_names", out var acObj) && acObj is TomlArray acArr)
+            allowPopupClassNames = acArr.OfType<string>().ToList();
+
         return new ExcludeConfig
         {
             ProcessNames = processNames,
             ClassNames = classNames,
+            AllowPopupProcessNames = allowPopupProcessNames,
+            AllowPopupClassNames = allowPopupClassNames,
         };
     }
 

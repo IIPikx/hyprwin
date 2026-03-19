@@ -76,6 +76,8 @@ public sealed class KeybindsConfig
     public string RotateSplitVertical { get; init; } = "SUPER+Y";
     public string RotateSplitHorizontal { get; init; } = "SUPER+X";
     public string MinimizeAll { get; init; } = "SUPER+D";
+    public string MinimizeWindow { get; init; } = "SUPER+M";
+    public string RestoreMinimized { get; init; } = "SUPER+SHIFT+M";
 }
 
 public sealed class WindowsKeysToSuppressConfig
@@ -103,6 +105,10 @@ public sealed class WindowsKeysToPassthroughConfig
 
 public sealed class AnimationsConfig
 {
+    /// <summary>
+    /// Preset name for animation values. Use "custom" to fully control values manually.
+    /// </summary>
+    public string Preset { get; init; } = "custom";
     public bool Enabled { get; init; } = true;
     public int WindowOpenDurationMs { get; init; } = 200;
     public int WindowCloseDurationMs { get; init; } = 150;
@@ -124,12 +130,14 @@ public sealed class LayoutConfig
 
 public sealed class ThemeConfig
 {
+    public string ThemePreset { get; init; } = "Catppuccin Mocha";
     public string BorderActive { get; init; } = "#cba6f7";
     public string BorderInactive { get; init; } = "#45475a";
     public string Background { get; init; } = "#1e1e2e";
     public string TopBarBg { get; init; } = "#181825";
     public string TopBarFg { get; init; } = "#cdd6f4";
     public string TopBarAccent { get; init; } = "#89b4fa";
+    public string IconTheme { get; init; } = "Emoji";
 }
 
 public sealed class TopBarConfig
@@ -270,4 +278,16 @@ public sealed class ExcludeConfig
 
     /// <summary>Window class names to exclude from management.</summary>
     public List<string> ClassNames { get; init; } = new();
+
+    /// <summary>
+    /// Popup/dialog windows are ignored by default. Processes listed here are allowed
+    /// to manage their popup/dialog windows as regular windows.
+    /// </summary>
+    public List<string> AllowPopupProcessNames { get; init; } = new();
+
+    /// <summary>
+    /// Popup/dialog windows are ignored by default. Classes listed here are allowed
+    /// to manage their popup/dialog windows as regular windows.
+    /// </summary>
+    public List<string> AllowPopupClassNames { get; init; } = new();
 }

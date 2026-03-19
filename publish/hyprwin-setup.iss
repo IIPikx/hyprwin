@@ -12,7 +12,9 @@
 ; Output: installer\HyprWin-Setup-{version}.exe
 
 #define MyAppName "HyprWin"
-#define MyAppVersion "1.0.1"
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.1"
+#endif
 #define MyAppPublisher "HyprWin"
 #define MyAppURL "https://github.com/hyprwin/hyprwin"
 #define MyAppExeName "HyprWin.App.exe"

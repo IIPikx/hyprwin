@@ -2,8 +2,10 @@
 **/bin/
 **/obj/
 
-# Published binaries
+# Publish output
 publish/bin/
+publish/HyprWin.App.exe
+publish/HyprWin.Core.pdb
 
 # Installer output
 installer/
@@ -11,6 +13,19 @@ installer/
 # User settings
 *.user
 *.suo
+*.userprefs
 
 # IDE
 .vs/
+.vscode/
+
+# NuGet
+packages/
+*.nupkg
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store

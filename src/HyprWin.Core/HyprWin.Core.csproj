@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <UseWPF>true</UseWPF>
@@ -7,15 +7,21 @@
     <RootNamespace>HyprWin.Core</RootNamespace>
 
     <!-- Assembly metadata -->
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2.0</FileVersion>
     <Company>HyprWin</Company>
     <Product>HyprWin</Product>
-    <Description>HyprWin Core — tiling engine and system services</Description>
-    <Copyright>Copyright © 2025-2026 HyprWin Contributors</Copyright>
+    <Description>HyprWin Core â€” tiling engine and system services</Description>
+    <Copyright>Copyright Â© 2025-2026 HyprWin Contributors</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Tomlyn" Version="0.17.0" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
   </ItemGroup>
 </Project>
+
+
+
+
+
+

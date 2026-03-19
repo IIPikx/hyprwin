@@ -202,6 +202,20 @@ public sealed class AnimationEngine : IDisposable
     public void UpdateFromConfig(Configuration.AnimationsConfig config)
     {
         IsEnabled = config.Enabled;
+        var presetName = config.Preset?.Trim() ?? "custom";
+        if (!presetName.Equals("custom", StringComparison.OrdinalIgnoreCase))
+        {
+            var preset = Configuration.AnimationPresets.Find(presetName);
+            MoveDurationMs = preset.MoveDurationMs;
+            OpenDurationMs = preset.OpenDurationMs;
+            CloseDurationMs = preset.CloseDurationMs;
+            EasingFunction = Easing.FromString(preset.Easing);
+            OpenStyle = Easing.ParseStyle(preset.WindowOpenStyle);
+            PopinPercent = Math.Clamp(preset.PopinPercent, 0, 100);
+            return;
+        }
+
+        // custom: full manual control via TOML/UI
         MoveDurationMs = config.WindowMoveDurationMs;
         OpenDurationMs = config.WindowOpenDurationMs;
         CloseDurationMs = config.WindowCloseDurationMs;

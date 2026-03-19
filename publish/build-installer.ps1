@@ -5,7 +5,9 @@
 #
 # Usage:
 #   .\publish\build-installer.ps1
+#   .\publish\build-installer.ps1              # Auto-increment patch version
 #   .\publish\build-installer.ps1 -Version "1.2.0"
+#   .\publish\build-installer.ps1 -NoAutoIncrement -Version "1.2.0"
 #   .\publish\build-installer.ps1 -SkipPublish   # Skip dotnet publish
 #   .\publish\build-installer.ps1 -SkipSign      # Skip code signing
 #   .\publish\build-installer.ps1 -PfxPath "cert.pfx" -PfxPassword "pw"
@@ -15,7 +17,8 @@
 #   - Inno Setup 6 (https://jrsoftware.org/isinfo.php)
 
 param(
-    [string]$Version     = "1.0.1",
+    [string]$Version     = "",
+    [switch]$NoAutoIncrement,
     [switch]$SkipPublish,
     [switch]$SkipSign,
     [string]$PfxPath     = "",
@@ -24,6 +27,63 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot  # repo root (one level up from publish/)
+
+function Get-NextPatchVersion {
+    param([string]$InstallerDir)
+
+    $pattern = '^HyprWin-Setup-(\d+)\.(\d+)\.(\d+)\.exe$'
+    $versions = @()
+    if (Test-Path $InstallerDir) {
+        $versions = Get-ChildItem $InstallerDir -File -Filter "HyprWin-Setup-*.exe" |
+            ForEach-Object {
+                $m = [regex]::Match($_.Name, $pattern)
+                if ($m.Success) {
+                    [PSCustomObject]@{
+                        Major = [int]$m.Groups[1].Value
+                        Minor = [int]$m.Groups[2].Value
+                        Patch = [int]$m.Groups[3].Value
+                    }
+                }
+            } |
+            Where-Object { $_ -ne $null }
+    }
+
+    if ($versions.Count -gt 0) {
+        $latest = $versions | Sort-Object Major, Minor, Patch -Descending | Select-Object -First 1
+        return "$($latest.Major).$($latest.Minor).$([int]$latest.Patch + 1)"
+    }
+
+    # Fallback if no installer exists yet.
+    return "1.0.0"
+}
+
+function Set-ProjectVersion {
+    param(
+        [string]$ProjectPath,
+        [string]$SemVer
+    )
+
+    if (-not (Test-Path $ProjectPath)) { return }
+    $assemblyVersion = "$SemVer.0"
+    $content = Get-Content $ProjectPath -Raw
+    $content = $content -replace '<AssemblyVersion>[^<]*</AssemblyVersion>', "<AssemblyVersion>$assemblyVersion</AssemblyVersion>"
+    $content = $content -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$assemblyVersion</FileVersion>"
+    $content = $content -replace '<InformationalVersion>[^<]*</InformationalVersion>', "<InformationalVersion>$SemVer</InformationalVersion>"
+    Set-Content -Path $ProjectPath -Value $content -Encoding UTF8
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    if ($NoAutoIncrement) {
+        throw "No version provided. Pass -Version x.y.z when using -NoAutoIncrement."
+    }
+    $installerDirForVersion = Join-Path $root "installer"
+    $Version = Get-NextPatchVersion -InstallerDir $installerDirForVersion
+    Write-Host "Auto-incremented version: $Version" -ForegroundColor Yellow
+}
+
+# Keep csproj versions in sync with installer version.
+Set-ProjectVersion -ProjectPath "$root\src\HyprWin.App\HyprWin.App.csproj" -SemVer $Version
+Set-ProjectVersion -ProjectPath "$root\src\HyprWin.Core\HyprWin.Core.csproj" -SemVer $Version
 
 Write-Host "=======================================" -ForegroundColor Cyan
 Write-Host " HyprWin Build & Package -- v$Version"  -ForegroundColor Cyan

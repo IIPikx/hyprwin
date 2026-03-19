@@ -249,6 +249,16 @@
                         <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Preset"/>
+                    <ComboBox x:Name="AnimPresetCombo" Grid.Column="1" Width="200" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13"
+                              SelectionChanged="AnimPreset_SelectionChanged"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Enabled"/>
                     <CheckBox x:Name="AnimEnabled" Grid.Column="1" Style="{StaticResource CheckStyle}"/>
                 </Grid>
@@ -257,8 +267,53 @@
                         <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Open Duration (ms)"/>
+                    <TextBox x:Name="AnimOpenDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Close Duration (ms)"/>
+                    <TextBox x:Name="AnimCloseDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Move Duration (ms)"/>
                     <TextBox x:Name="AnimMoveDuration" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Easing"/>
+                    <TextBox x:Name="AnimEasing" Grid.Column="1" Style="{StaticResource InputStyle}" Width="180" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Open Style"/>
+                    <ComboBox x:Name="AnimOpenStyle" Grid.Column="1" Width="120" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13">
+                        <ComboBoxItem Content="popin"/>
+                        <ComboBoxItem Content="slide"/>
+                        <ComboBoxItem Content="fade"/>
+                    </ComboBox>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Popin Percent"/>
+                    <TextBox x:Name="AnimPopinPercent" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
                 </Grid>
 
                 <!-- Gaming Mode -->
@@ -299,6 +354,24 @@
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Excluded Processes" ToolTip="Comma-separated process names without .exe"/>
                     <TextBox x:Name="ExcludedProcesses" Grid.Column="1" Style="{StaticResource InputStyle}" HorizontalAlignment="Stretch"
                              ToolTip="Comma-separated, e.g.: Taskmgr, Discord, vlc"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Popup Allowlist (Processes)" ToolTip="Optional: popup/dialog windows from these processes may be managed"/>
+                    <TextBox x:Name="PopupAllowedProcesses" Grid.Column="1" Style="{StaticResource InputStyle}" HorizontalAlignment="Stretch"
+                             ToolTip="Comma-separated, e.g.: photoshop, devenv"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Popup Allowlist (Classes)" ToolTip="Optional: popup/dialog windows with these classes may be managed"/>
+                    <TextBox x:Name="PopupAllowedClasses" Grid.Column="1" Style="{StaticResource InputStyle}" HorizontalAlignment="Stretch"
+                             ToolTip="Comma-separated class names"/>
                 </Grid>
             </StackPanel>
         </ScrollViewer>

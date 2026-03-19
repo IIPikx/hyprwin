@@ -75,6 +75,8 @@ public sealed class WindowTracker : IDisposable
     // Exclusion lists
     private HashSet<string> _excludedProcessNames = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _excludedClassNames = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _allowPopupProcessNames = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _allowPopupClassNames = new(StringComparer.OrdinalIgnoreCase);
 
     // Our own process ID — never manage our own windows
     private readonly uint _ownPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
@@ -122,10 +124,20 @@ public sealed class WindowTracker : IDisposable
     /// <summary>
     /// Update the exclusion lists (process names and class names to ignore).
     /// </summary>
-    public void SetExclusions(IEnumerable<string> processNames, IEnumerable<string> classNames)
+    public void SetExclusions(
+        IEnumerable<string> processNames,
+        IEnumerable<string> classNames,
+        IEnumerable<string>? allowPopupProcessNames = null,
+        IEnumerable<string>? allowPopupClassNames = null)
     {
         _excludedProcessNames = new HashSet<string>(processNames, StringComparer.OrdinalIgnoreCase);
         _excludedClassNames = new HashSet<string>(classNames, StringComparer.OrdinalIgnoreCase);
+        _allowPopupProcessNames = new HashSet<string>(
+            allowPopupProcessNames ?? Enumerable.Empty<string>(),
+            StringComparer.OrdinalIgnoreCase);
+        _allowPopupClassNames = new HashSet<string>(
+            allowPopupClassNames ?? Enumerable.Empty<string>(),
+            StringComparer.OrdinalIgnoreCase);
         Logger.Instance.Info($"Exclusions updated: {_excludedProcessNames.Count} processes, {_excludedClassNames.Count} classes");
     }
 
@@ -373,6 +385,24 @@ public sealed class WindowTracker : IDisposable
         // Skip known system windows
         string className = NativeMethods.GetWindowClassName(hwnd);
         if (IsSystemWindow(className)) return false;
+
+        // Popup-/Dialog-/Unterfenster werden standardmäßig nicht getrackt/getiled.
+        // Optional können bestimmte Prozesse/Klassen explizit freigegeben werden.
+        bool isPopupOrDialog = IsPopupOrDialog(hwnd);
+        if (isPopupOrDialog)
+        {
+            bool popupClassAllowed = _allowPopupClassNames.Count > 0 && _allowPopupClassNames.Contains(className);
+            bool popupProcessAllowed = false;
+
+            if (!popupClassAllowed && _allowPopupProcessNames.Count > 0)
+            {
+                string popupProc = GetProcessNameForWindow(hwnd);
+                popupProcessAllowed = _allowPopupProcessNames.Contains(popupProc);
+            }
+
+            if (!popupClassAllowed && !popupProcessAllowed)
+                return false;
+        }
 
         // Skip our own process's windows (border, topbar, etc.)
         NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
