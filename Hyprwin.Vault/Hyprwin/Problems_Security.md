@@ -25,6 +25,7 @@ Fenster mit `WS_EX_TOPMOST` und DirectComposition-Rendering (z.B. manche XAML-Ho
 | BUG-1 | `WindowTracker.cs` | `OnWinEventCreate` – tote Lambda entfernt, Tracking-Logik korrekt in `Dispatcher.BeginInvoke` verschoben. `WindowAdded` feuert jetzt auf UI-Thread. |
 | BUG-2 | `App.xaml.cs` | `ApplyWindowRuleResult` – `center`-Regel verwendet nun `GetMonitorForWindow()` statt immer Monitor 0. |
 | BUG-3 | `SettingsWindow.xaml` | `ThemePresetCombo` und `IconThemeCombo` Steuerelemente im XAML hinzugefügt, sodass Theme-Presets im UI ausgewählt werden können. |
+| BUG-4 | `AutostartManager.cs` / `hyprwin-setup.iss` | Da HyprWin Administratorrechte benötigt (`requireAdministrator`), blockiert Windows das automatische Starten aus der Registry (`HKCU\...\Run`) beim Login stumm. Autostart wurde auf Windows Task Scheduler (`schtasks.exe /SC ONLOGON /RL HIGHEST`) umgestellt, sodass HyprWin nach Reboots zuverlässig mit Admin-Rechten startet. |
 | PERF-1 | `WindowTracker.cs` / `NativeMethods.cs` | `GetProcessNameForWindow` verwendet jetzt `QueryFullProcessImageName` mit `PROCESS_QUERY_LIMITED_INFORMATION` statt verwaltetem `Process`-Objekt. |
 | PERF-2 | `SystemInfoService.cs` | Cachen der Netzwerkadapter (`NetworkInterface.GetAllNetworkInterfaces()`) zur Vermeidung wiederholter Kernel IP Helper Enumerationen. |
 | PERF-3 | `TrayIconService.cs` | `SetGamingMode` hinzugefügt und Prozess-Lookup optimiert, um CPU- und Memory-Scans bei Spielen zu minimieren. |

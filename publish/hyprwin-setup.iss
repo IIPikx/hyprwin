@@ -74,11 +74,14 @@ Name: "{autodesktop}\{#MyAppName}";          Filename: "{app}\{#MyAppExeName}"; 
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
+Filename: "schtasks.exe"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"{app}\{#MyAppExeName}"""" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: autostart
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallRun]
 ; Kill HyprWin before uninstalling so files aren't locked
 Filename: "taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: runhidden; RunOnceId: "KillHyprWin"
+; Remove scheduled autostart task
+Filename: "schtasks.exe"; Parameters: "/Delete /TN ""{#MyAppName}"" /F"; Flags: runhidden; RunOnceId: "DeleteHyprWinTask"
 
 [UninstallDelete]
 ; Clean up log files
