@@ -185,10 +185,12 @@ public sealed class AnimationEngine : IDisposable
     private bool _isRendering;
     private bool _disposed;
 
-    // Pre-allocated list to avoid GC during rendering
+    // Pre-allocated buffers to avoid GC during rendering
     private readonly List<ActiveAnimation> _completedBuffer = new();
+    private ActiveAnimation[] _renderSnapshot = Array.Empty<ActiveAnimation>();
 
     public bool IsEnabled { get; set; } = true;
+    public bool IsPaused { get; set; } = false;
     public int MoveDurationMs { get; set; } = 120;
     public int OpenDurationMs { get; set; } = 200;
     public int CloseDurationMs { get; set; } = 150;
@@ -229,7 +231,7 @@ public sealed class AnimationEngine : IDisposable
     /// </summary>
     public void AnimateMove(IntPtr hwnd, NativeMethods.RECT from, NativeMethods.RECT to)
     {
-        if (!IsEnabled || MoveDurationMs <= 0)
+        if (!IsEnabled || IsPaused || MoveDurationMs <= 0)
         {
             TilingEngine.ApplyWindowPosition(hwnd, to);
             return;
@@ -242,8 +244,12 @@ public sealed class AnimationEngine : IDisposable
 
         lock (_lock)
         {
-            // Remove any existing animation for this window
-            _animations.RemoveAll(a => a.WindowHandle == hwnd);
+            // Remove any existing animation for this window without allocating delegate
+            for (int i = _animations.Count - 1; i >= 0; i--)
+            {
+                if (_animations[i].WindowHandle == hwnd)
+                    _animations.RemoveAt(i);
+            }
 
             var anim = new ActiveAnimation
             {
@@ -267,7 +273,7 @@ public sealed class AnimationEngine : IDisposable
     /// </summary>
     public void AnimateOpen(IntPtr hwnd, NativeMethods.RECT targetRect)
     {
-        if (!IsEnabled || OpenDurationMs <= 0)
+        if (!IsEnabled || IsPaused || OpenDurationMs <= 0)
         {
             TilingEngine.ApplyWindowPosition(hwnd, targetRect);
             return;
@@ -307,7 +313,12 @@ public sealed class AnimationEngine : IDisposable
 
         lock (_lock)
         {
-            _animations.RemoveAll(a => a.WindowHandle == hwnd);
+            for (int i = _animations.Count - 1; i >= 0; i--)
+            {
+                if (_animations[i].WindowHandle == hwnd)
+                    _animations.RemoveAt(i);
+            }
+
             var anim = new ActiveAnimation
             {
                 WindowHandle = hwnd,
@@ -356,49 +367,65 @@ public sealed class AnimationEngine : IDisposable
     {
         try
         {
+            int animCount;
             lock (_lock)
             {
-                if (_animations.Count == 0)
+                animCount = _animations.Count;
+                if (animCount == 0)
                 {
                     StopRendering();
                     return;
                 }
 
-                long now = Stopwatch.GetTimestamp();
-                _completedBuffer.Clear();
+                if (_renderSnapshot.Length < animCount)
+                    _renderSnapshot = new ActiveAnimation[animCount + 4];
 
-                for (int i = 0; i < _animations.Count; i++)
+                _animations.CopyTo(0, _renderSnapshot, 0, animCount);
+            }
+
+            long now = Stopwatch.GetTimestamp();
+            _completedBuffer.Clear();
+
+            // Perform SetWindowPos updates outside _lock to prevent lock contention
+            // if an external window takes longer to process WM_WINDOWPOSCHANGING.
+            for (int i = 0; i < animCount; i++)
+            {
+                var anim = _renderSnapshot[i];
+                double t = anim.GetProgress(now);
+                double ease = anim.EasingFunction(t);
+
+                int x = Lerp(anim.From.Left, anim.To.Left, ease);
+                int y = Lerp(anim.From.Top, anim.To.Top, ease);
+                int r = Lerp(anim.From.Right, anim.To.Right, ease);
+                int b = Lerp(anim.From.Bottom, anim.To.Bottom, ease);
+
+                NativeMethods.SetWindowPos(anim.WindowHandle, IntPtr.Zero,
+                    x, y, r - x, b - y,
+                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
+                    | NativeMethods.SWP_NOCOPYBITS | NativeMethods.SWP_DEFERERASE);
+
+                if (t >= 1.0)
+                    _completedBuffer.Add(anim);
+            }
+
+            // Cleanup completed animations under lock
+            if (_completedBuffer.Count > 0)
+            {
+                lock (_lock)
                 {
-                    var anim = _animations[i];
-                    double t = anim.GetProgress(now);
-                    double ease = anim.EasingFunction(t);
+                    for (int i = 0; i < _completedBuffer.Count; i++)
+                    {
+                        var done = _completedBuffer[i];
+                        // Snap to final position
+                        NativeMethods.SetWindowPos(done.WindowHandle, IntPtr.Zero,
+                            done.To.Left, done.To.Top, done.To.Width, done.To.Height,
+                            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_DEFERERASE);
+                        _animations.Remove(done);
+                    }
 
-                    int x = Lerp(anim.From.Left, anim.To.Left, ease);
-                    int y = Lerp(anim.From.Top, anim.To.Top, ease);
-                    int r = Lerp(anim.From.Right, anim.To.Right, ease);
-                    int b = Lerp(anim.From.Bottom, anim.To.Bottom, ease);
-
-                    NativeMethods.SetWindowPos(anim.WindowHandle, IntPtr.Zero,
-                        x, y, r - x, b - y,
-                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE
-                        | NativeMethods.SWP_NOCOPYBITS);
-
-                    if (t >= 1.0)
-                        _completedBuffer.Add(anim);
+                    if (_animations.Count == 0)
+                        StopRendering();
                 }
-
-                for (int i = 0; i < _completedBuffer.Count; i++)
-                {
-                    var done = _completedBuffer[i];
-                    // Snap to final position
-                    NativeMethods.SetWindowPos(done.WindowHandle, IntPtr.Zero,
-                        done.To.Left, done.To.Top, done.To.Width, done.To.Height,
-                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
-                    _animations.Remove(done);
-                }
-
-                if (_animations.Count == 0)
-                    StopRendering();
             }
         }
         catch (Exception ex)

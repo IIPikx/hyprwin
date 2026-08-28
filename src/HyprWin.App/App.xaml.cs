@@ -32,6 +32,7 @@ public partial class App : Application
     private SystemInfoService _sysInfoService = null!;
     private TrayIconService _trayIconService = null!;
     private TouchpadGestureService? _touchpadService;
+    private System.Windows.Interop.HwndSource? _messageHookSource;
 
     // Set to true as soon as shutdown begins — guards async BeginInvoke handlers
     // from touching windows that are already in the process of closing.
@@ -285,6 +286,10 @@ public partial class App : Application
                 }
             }
 
+            // 18d. Start display change hook
+            _monitorManager.MonitorChanged += OnMonitorsChanged;
+            SetupDisplayChangeHook();
+
             // 19. Start config file watching
             _configManager.ConfigChanged += OnConfigChanged;
             _configManager.StartWatching();
@@ -310,6 +315,9 @@ public partial class App : Application
 
         try
         {
+            // 0. Stop display change hook
+            _messageHookSource?.Dispose();
+
             // 1. Close top bar windows FIRST — they must stop receiving events
             //    before the services they depend on are disposed.
             foreach (var bar in _topBarWindows)
@@ -578,7 +586,57 @@ public partial class App : Application
         });
     }
 
-    // ──────────────── Top Bar ────────────────
+    // ──────────────── Top Bar & Display Management ────────────────
+
+    private void SetupDisplayChangeHook()
+    {
+        try
+        {
+            var parameters = new System.Windows.Interop.HwndSourceParameters("HyprWinDisplayListener")
+            {
+                Width = 0,
+                Height = 0,
+                WindowStyle = 0,
+                ParentWindow = new IntPtr(-3), // HWND_MESSAGE
+            };
+            _messageHookSource = new System.Windows.Interop.HwndSource(parameters);
+            _messageHookSource.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            {
+                if (msg == HyprWin.Core.Interop.NativeMethods.WM_DISPLAYCHANGE)
+                {
+                    var cfg = _configManager.Current;
+                    _monitorManager.OnDisplayChange(cfg.TopBar.Enabled ? cfg.TopBar.Height : 0, cfg.TopBar.Position);
+                }
+                return IntPtr.Zero;
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Warn($"Could not create display change listener: {ex.Message}");
+        }
+    }
+
+    private void OnMonitorsChanged()
+    {
+        if (_shuttingDown) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (_shuttingDown) return;
+            var config = _configManager.Current;
+            if (config.TopBar.Enabled)
+                CreateTopBars(config);
+
+            foreach (var mon in _monitorManager.Monitors)
+            {
+                var ws = _workspaceManager.GetActiveWorkspace(mon.Index);
+                if (ws != null)
+                {
+                    _tilingEngine.SyncTree(ws);
+                    _tilingEngine.TileWorkspace(ws, animate: false);
+                }
+            }
+        });
+    }
 
     private void CreateTopBars(HyprWinConfig config)
     {
@@ -781,6 +839,7 @@ public partial class App : Application
             _borderRenderer?.Hide();
 
         _sysInfoService?.SetGamingMode(true);
+        _trayIconService?.SetGamingMode(true);
     }
 
     private void ExitGamingMode(HyprWin.Core.Configuration.HyprWinConfig config)
@@ -796,6 +855,7 @@ public partial class App : Application
             _borderRenderer?.TrackWindow(fgHwnd);
 
         _sysInfoService?.SetGamingMode(false);
+        _trayIconService?.SetGamingMode(false);
     }
 
     private static string GetProcessName(IntPtr hwnd)
@@ -803,8 +863,7 @@ public partial class App : Application
         try
         {
             HyprWin.Core.Interop.NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
-            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
-            return proc.ProcessName;
+            return HyprWin.Core.Interop.NativeMethods.GetProcessName(pid);
         }
         catch { return ""; }
     }
@@ -972,7 +1031,7 @@ public partial class App : Application
                 HyprWin.Core.Interop.NativeMethods.GetWindowRect(window.Handle, out var rect);
                 int ww = rect.Right - rect.Left;
                 int wh = rect.Bottom - rect.Top;
-                var mon = _monitorManager.Monitors.FirstOrDefault();
+                var mon = _monitorManager.GetMonitorForWindow(window.Handle) ?? _monitorManager.GetByIndex(0);
                 if (mon != null)
                 {
                     int cx = mon.WorkArea.Left + (mon.WorkArea.Right - mon.WorkArea.Left - ww) / 2;

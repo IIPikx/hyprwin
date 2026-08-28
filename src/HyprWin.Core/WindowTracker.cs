@@ -193,15 +193,14 @@ public sealed class WindowTracker : IDisposable
     }
 
     /// <summary>
-    /// Get the process name for a window handle.
+    /// Get the process name for a window handle (lightweight, zero managed Process allocations).
     /// </summary>
     private static string GetProcessNameForWindow(IntPtr hwnd)
     {
         try
         {
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
-            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
-            return proc.ProcessName;
+            return NativeMethods.GetProcessName(pid);
         }
         catch
         {

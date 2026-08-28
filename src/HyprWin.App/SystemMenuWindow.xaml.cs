@@ -49,7 +49,12 @@ public partial class SystemMenuWindow : Window
 
     private void OnMetricsUpdated(SystemMetrics m)
     {
-        Dispatcher.Invoke(() => ApplyMetrics(m));
+        if (_closing) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (_closing) return;
+            ApplyMetrics(m);
+        });
     }
 
     private void ApplyMetrics(SystemMetrics m)

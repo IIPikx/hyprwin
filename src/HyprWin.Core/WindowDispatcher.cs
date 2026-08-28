@@ -56,22 +56,25 @@ public sealed class WindowDispatcher
             var focusedRect = GetVisualRect(fgHwnd);
             if (focusedRect.Width <= 0) return;
 
-            var candidates = _monitorManager.Monitors
-                .SelectMany(mon =>
-                    _workspaceManager.GetActiveWorkspace(mon.Index)?.Windows
-                    ?? Enumerable.Empty<ManagedWindow>())
-                .Where(w =>
+            var candidates = new List<ManagedWindow>();
+            var monitors = _monitorManager.Monitors;
+            for (int i = 0; i < monitors.Count; i++)
+            {
+                var ws = _workspaceManager.GetActiveWorkspace(monitors[i].Index);
+                if (ws == null) continue;
+                for (int j = 0; j < ws.Windows.Count; j++)
                 {
-                    if (w.Handle == fgHwnd) return false;
-                    if (!NativeMethods.IsWindow(w.Handle)) return false;
-                    if (!NativeMethods.IsWindowVisible(w.Handle)) return false;
+                    var w = ws.Windows[j];
+                    if (w.Handle == fgHwnd) continue;
+                    if (!NativeMethods.IsWindow(w.Handle)) continue;
+                    if (!NativeMethods.IsWindowVisible(w.Handle)) continue;
                     w.IsMinimized = NativeMethods.IsIconic(w.Handle);
-                    if (w.IsMinimized) return false;
+                    if (w.IsMinimized) continue;
                     w.RefreshBounds();
-                    if (w.Bounds.Left < -5000 || w.Bounds.Top < -5000) return false;
-                    return true;
-                })
-                .ToList();
+                    if (w.Bounds.Left < -5000 || w.Bounds.Top < -5000) continue;
+                    candidates.Add(w);
+                }
+            }
 
             Logger.Instance.Debug($"FocusInDirection({dx},{dy}): {candidates.Count} candidates across all monitors");
             if (candidates.Count == 0) return;
@@ -1070,8 +1073,8 @@ public sealed class WindowDispatcher
 
         try
         {
-            var proc = Process.GetProcessById((int)pid);
-            if (proc.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase))
+            var procName = NativeMethods.GetProcessName(pid);
+            if (procName.Equals("explorer", StringComparison.OrdinalIgnoreCase))
                 return false;
         }
         catch

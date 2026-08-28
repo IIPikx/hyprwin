@@ -68,6 +68,7 @@ public static class NativeMethods
     public const uint SWP_NOSENDCHANGING = 0x0400;
     public const uint SWP_ASYNCWINDOWPOS = 0x4000;
     public const uint SWP_NOCOPYBITS   = 0x0100;
+    public const uint SWP_DEFERERASE   = 0x2000;
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public static readonly IntPtr HWND_NOTOPMOST = new(-2);
     public static readonly IntPtr HWND_TOP = IntPtr.Zero;
@@ -755,6 +756,20 @@ public static class NativeMethods
         SetForegroundWindow(hWnd);
     }
 
+    // Process access — used for lightweight process-name lookup (PERF: avoids managed Process object)
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, StringBuilder lpExeName, ref uint lpdwSize);
+
     /// <summary>
     /// Disable ForegroundLockTimeout so keyboard-driven focus changes always work.
     /// Komorebi does this on startup to ensure SetForegroundWindow is never blocked.
@@ -766,6 +781,30 @@ public static class NativeMethods
         if (currentValue != 0)
         {
             SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, IntPtr.Zero, SPIF_SENDCHANGE);
+        }
+    }
+
+    /// <summary>
+    /// Returns the process image name (without path or extension) for a given PID.
+    /// Uses QueryFullProcessImageName with PROCESS_QUERY_LIMITED_INFORMATION — no elevation required
+    /// and much faster with zero GC pressure compared to creating a managed Process object.
+    /// </summary>
+    public static string GetProcessName(uint pid)
+    {
+        if (pid == 0) return string.Empty;
+        var hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (hProc == IntPtr.Zero) return string.Empty;
+        try
+        {
+            uint size = 260;
+            var sb = new StringBuilder((int)size);
+            return QueryFullProcessImageName(hProc, 0, sb, ref size)
+                ? System.IO.Path.GetFileNameWithoutExtension(sb.ToString())
+                : string.Empty;
+        }
+        finally
+        {
+            CloseHandle(hProc);
         }
     }
 }

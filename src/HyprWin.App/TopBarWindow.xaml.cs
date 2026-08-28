@@ -304,11 +304,10 @@ public partial class TopBarWindow : Window
         }
     }
 
-    // ──────────────── System Metrics ────────────────
-
     private void OnMetricsUpdated(SystemMetrics m)
     {
-        Dispatcher.Invoke(() => ApplySystemMetrics(m));
+        if (!IsLoaded) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => ApplySystemMetrics(m));
     }
 
     private void ApplySystemMetrics(SystemMetrics m)
@@ -415,7 +414,8 @@ public partial class TopBarWindow : Window
 
     private void OnTrayIconsUpdated(List<TrayIconInfo> icons)
     {
-        Dispatcher.Invoke(() =>
+        if (!IsLoaded) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
         {
             try
             {

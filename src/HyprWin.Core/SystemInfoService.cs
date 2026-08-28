@@ -115,6 +115,9 @@ public sealed class SystemInfoService : IDisposable
     private long  _lastBytesReceived;
     private long  _lastBytesSent;
     private DateTime _lastNetSample = DateTime.MinValue;
+    private NetworkInterface[]? _cachedInterfaces;
+    private int _netCacheCounter = 0;
+    private const int NetCacheRefreshCycles = 5; // Refresh interface list every 10s (5 * 2s)
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -252,11 +255,22 @@ public sealed class SystemInfoService : IDisposable
         catch { return (0, 0, 0); }
     }
 
-    private static (bool connected, string name, bool isWifi) ReadNetwork()
+    /// <summary>
+    /// Read primary network interface status. Caches NetworkInterface list across
+    /// poll cycles to avoid repeated kernel enumeration.
+    /// </summary>
+    private (bool connected, string name, bool isWifi) ReadNetwork()
     {
         try
         {
-            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            // Refresh cache periodically
+            if (_cachedInterfaces == null || ++_netCacheCounter >= NetCacheRefreshCycles)
+            {
+                _netCacheCounter = 0;
+                _cachedInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+            }
+
+            foreach (var ni in _cachedInterfaces)
             {
                 if (ni.OperationalStatus != OperationalStatus.Up) continue;
                 if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
@@ -278,14 +292,16 @@ public sealed class SystemInfoService : IDisposable
 
     /// <summary>
     /// Calculate network download/upload rates by comparing total byte counters
-    /// since the last sample.
+    /// since the last sample. Uses the cached interface list.
     /// </summary>
     private (long downBytesPerSec, long upBytesPerSec) ReadNetworkRate()
     {
         try
         {
+            if (_cachedInterfaces == null) return (0, 0);
+
             long totalReceived = 0, totalSent = 0;
-            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            foreach (var ni in _cachedInterfaces)
             {
                 if (ni.OperationalStatus != OperationalStatus.Up) continue;
                 if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: HyprWin.HyprWin
+PackageVersion: 1.0.0
+PackageLocale: en-US
+Publisher: HyprWin
+# TODO: Update with your actual URL
+PublisherUrl: https://github.com/YOUR_USERNAME/hyprwin
+PublisherSupportUrl: https://github.com/YOUR_USERNAME/hyprwin/issues
+PackageName: HyprWin
+PackageUrl: https://github.com/YOUR_USERNAME/hyprwin
+License: MIT
+# TODO: Update with your actual license URL
+LicenseUrl: https://github.com/YOUR_USERNAME/hyprwin/blob/main/LICENSE
+ShortDescription: Hyprland-inspired tiling window manager for Windows 11
+Description: |-
+  HyprWin brings the Hyprland tiling window manager experience to Windows 11.
+  Features include BSP (Binary Space Partition) tiling, virtual workspaces,
+  custom animations with bezier curves, Hyprland-style window rules,
+  a configurable top bar with system monitoring widgets,
+  and a TOML-based configuration with live reload.
+Tags:
+  - tiling
+  - window-manager
+  - hyprland
+  - productivity
+  - windows
+  - wm
+ReleaseNotesUrl: https://github.com/YOUR_USERNAME/hyprwin/releases/tag/v1.0.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

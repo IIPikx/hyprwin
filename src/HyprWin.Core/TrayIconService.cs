@@ -37,6 +37,12 @@ public sealed class TrayIconService : IDisposable
 
     private System.Timers.Timer? _pollTimer;
     private bool _disposed;
+    private volatile bool _paused;
+
+    // Normal poll interval (set in Start)
+    private int _normalIntervalMs = 3000;
+    // Slow-poll interval used when all bars are hidden (fullscreen / gaming)
+    private const int SlowIntervalMs = 10_000;
 
     // ── Toolbar messages ──
     private const int TB_BUTTONCOUNT = 0x0418;
@@ -73,6 +79,7 @@ public sealed class TrayIconService : IDisposable
     /// </summary>
     public void Start(int pollIntervalMs = 3000)
     {
+        _normalIntervalMs = pollIntervalMs;
         _pollTimer = new System.Timers.Timer(pollIntervalMs);
         _pollTimer.Elapsed += (_, _) => PollIcons();
         _pollTimer.Start();
@@ -81,9 +88,25 @@ public sealed class TrayIconService : IDisposable
         Task.Run(() => PollIcons());
     }
 
+    /// <summary>
+    /// Pause tray scanning when all top bars are hidden (fullscreen / gaming mode).
+    /// Switches to a very slow 10 s interval instead of stopping entirely so that
+    /// the icon list is still refreshed if the user alt-tabs out of the game.
+    /// </summary>
+    public void SetGamingMode(bool active)
+    {
+        if (_pollTimer == null) return;
+        _paused = active;
+        _pollTimer.Interval = active ? SlowIntervalMs : _normalIntervalMs;
+        Logger.Instance.Info($"TrayIconService: GamingMode={active} (interval={_pollTimer.Interval} ms)");
+    }
+
     private void PollIcons()
     {
         if (_disposed) return;
+        // In gaming mode the interval is already slowed; skip the expensive
+        // cross-process memory scan if the pause flag is still set.
+        if (_paused) return;
         try
         {
             var icons = ReadTrayIcons();
@@ -248,12 +271,7 @@ public sealed class TrayIconService : IDisposable
                 if (ownerHwnd != IntPtr.Zero && NativeMethods.IsWindow(ownerHwnd))
                 {
                     NativeMethods.GetWindowThreadProcessId(ownerHwnd, out uint ownerPid);
-                    try
-                    {
-                        using var proc = Process.GetProcessById((int)ownerPid);
-                        processName = proc.ProcessName;
-                    }
-                    catch { /* process may have exited */ }
+                    processName = NativeMethods.GetProcessName(ownerPid);
                 }
 
                 // ── Tooltip ──

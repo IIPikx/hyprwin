@@ -20,6 +20,8 @@ public sealed class TouchpadGestureService : IDisposable
     private readonly Dictionary<IntPtr, IntPtr> _devicePreparsed = new();
     private readonly Dictionary<IntPtr, int> _deviceMaxLinkCollections = new();
 
+    private byte[] _reportBuffer = new byte[256];
+
     private int _contactCount;
     private bool _gestureActive;
     private double _lastCentroidX, _lastCentroidY;
@@ -108,12 +110,14 @@ public sealed class TouchpadGestureService : IDisposable
                 IntPtr preparsed = GetOrCachePreparsedData(header.hDevice);
                 if (preparsed == IntPtr.Zero) return;
 
+                if (_reportBuffer.Length < dwSizeHid)
+                    _reportBuffer = new byte[dwSizeHid * 2];
+
                 IntPtr reportsStart = buffer + hidOffset + 8;
                 for (uint i = 0; i < dwCount; i++)
                 {
-                    byte[] report = new byte[dwSizeHid];
-                    Marshal.Copy(reportsStart + (int)(i * dwSizeHid), report, 0, (int)dwSizeHid);
-                    ProcessHidReport(preparsed, report, header.hDevice);
+                    Marshal.Copy(reportsStart + (int)(i * dwSizeHid), _reportBuffer, 0, (int)dwSizeHid);
+                    ProcessHidReport(preparsed, _reportBuffer, (int)dwSizeHid, header.hDevice);
                 }
             }
             finally
@@ -161,14 +165,14 @@ public sealed class TouchpadGestureService : IDisposable
         return preparsed;
     }
 
-    private void ProcessHidReport(IntPtr preparsed, byte[] report, IntPtr hDevice)
+    private void ProcessHidReport(IntPtr preparsed, byte[] report, int reportLength, IntPtr hDevice)
     {
         int status = NativeMethods.HidP_GetUsageValue(
             NativeMethods.HidP_Input,
             NativeMethods.HID_USAGE_PAGE_DIGITIZER, 0,
             NativeMethods.HID_USAGE_DIGITIZER_CONTACT_COUNT,
             out uint rawContactCount,
-            preparsed, report, (uint)report.Length);
+            preparsed, report, (uint)reportLength);
 
         if (status != NativeMethods.HIDP_STATUS_SUCCESS) return;
 
@@ -184,13 +188,13 @@ public sealed class TouchpadGestureService : IDisposable
                 NativeMethods.HidP_Input,
                 NativeMethods.HID_USAGE_PAGE_GENERIC, lc,
                 NativeMethods.HID_USAGE_GENERIC_X,
-                out uint x, preparsed, report, (uint)report.Length);
+                out uint x, preparsed, report, (uint)reportLength);
 
             int yStatus = NativeMethods.HidP_GetUsageValue(
                 NativeMethods.HidP_Input,
                 NativeMethods.HID_USAGE_PAGE_GENERIC, lc,
                 NativeMethods.HID_USAGE_GENERIC_Y,
-                out uint y, preparsed, report, (uint)report.Length);
+                out uint y, preparsed, report, (uint)reportLength);
 
             if (xStatus == NativeMethods.HIDP_STATUS_SUCCESS &&
                 yStatus == NativeMethods.HIDP_STATUS_SUCCESS)

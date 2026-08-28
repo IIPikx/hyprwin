@@ -150,6 +150,25 @@
                         <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Theme Preset"/>
+                    <ComboBox x:Name="ThemePresetCombo" Grid.Column="1" Width="200" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13"
+                              SelectionChanged="ThemePreset_SelectionChanged"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Icon Theme"/>
+                    <ComboBox x:Name="IconThemeCombo" Grid.Column="1" Width="160" HorizontalAlignment="Left"
+                              Background="#313244" Foreground="#cdd6f4" FontSize="13"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Active Border Color"/>
                     <TextBox x:Name="BorderActive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
                 </Grid>
