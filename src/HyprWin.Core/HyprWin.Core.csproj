@@ -7,8 +7,8 @@
     <RootNamespace>HyprWin.Core</RootNamespace>
 
     <!-- Assembly metadata -->
-    <AssemblyVersion>1.0.2.0</AssemblyVersion>
-    <FileVersion>1.0.2.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Company>HyprWin</Company>
     <Product>HyprWin</Product>
     <Description>HyprWin Core â€” tiling engine and system services</Description>
@@ -19,6 +19,7 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
   </ItemGroup>
 </Project>
+
 
 
 

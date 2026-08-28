@@ -175,6 +175,13 @@
     - AllSensors
     - Dispose
 
+## HyprWin.Core\IpcServer.cs
+- **class IpcServer**
+  - **Methoden:**
+    - Start
+    - ServerLoopAsync
+    - Dispose
+
 ## HyprWin.Core\KeyboardHook.cs
 - **class KeyboardHook**
   - **Methoden:**
@@ -188,6 +195,19 @@
     - HookCallback
     - InjectWinCombo
     - IsModifierKey
+    - Dispose
+
+## HyprWin.Core\MouseHook.cs
+- **class MouseHook**
+  - **Methoden:**
+    - Install
+    - HookCallback
+    - IsSuperDown
+    - OnLeftButtonDown
+    - OnMouseMove
+    - OnLeftButtonUp
+    - OnRightButtonDown
+    - OnRightButtonUp
     - Dispose
 
 ## HyprWin.Core\Logger.cs

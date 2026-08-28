@@ -10,6 +10,7 @@ public static class NativeMethods
 {
     // ──────────────────────── Delegates ────────────────────────
     public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+    public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
     public delegate void WinEventDelegate(
         IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
@@ -20,6 +21,7 @@ public static class NativeMethods
 
     // Hook types
     public const int WH_KEYBOARD_LL = 13;
+    public const int WH_MOUSE_LL = 14;
 
     // Window messages
     public const int WM_KEYDOWN    = 0x0100;
@@ -28,6 +30,11 @@ public static class NativeMethods
     public const int WM_SYSKEYUP   = 0x0105;
     public const int WM_CLOSE      = 0x0010;
     public const int WM_DISPLAYCHANGE = 0x007E;
+    public const int WM_MOUSEMOVE     = 0x0200;
+    public const int WM_LBUTTONDOWN   = 0x0201;
+    public const int WM_LBUTTONUP     = 0x0202;
+    public const int WM_RBUTTONDOWN   = 0x0204;
+    public const int WM_RBUTTONUP     = 0x0205;
 
     // Virtual key codes
     public const int VK_LWIN   = 0x5B;
@@ -281,9 +288,12 @@ public static class NativeMethods
 
     // ──────────────────────── Functions ────────────────────────
 
-    // Keyboard hooks
+    // Keyboard & Mouse hooks
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -723,6 +733,26 @@ public static class NativeMethods
     {
         DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT rect, Marshal.SizeOf<RECT>());
         return rect;
+    }
+
+    public const uint GA_PARENT = 1;
+    public const uint GA_ROOT = 2;
+    public const uint GA_ROOTOWNER = 3;
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr WindowFromPoint(POINT Point);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    public static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSLLHOOKSTRUCT
+    {
+        public POINT pt;
+        public uint mouseData;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
     }
 
     public static void SetCornerPreference(IntPtr hWnd, int preference)

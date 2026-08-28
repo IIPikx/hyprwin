@@ -142,6 +142,14 @@
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Corner Rounding (px)"/>
                     <TextBox x:Name="Rounding" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left"/>
                 </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Master Window Ratio"/>
+                    <TextBox x:Name="MasterRatio" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left" ToolTip="0.2 to 0.8 (default: 0.55)"/>
+                </Grid>
 
                 <!-- Theme -->
                 <TextBlock Style="{StaticResource HeaderStyle}" Text="&#xE790;  Theme"/>
@@ -179,6 +187,14 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Style="{StaticResource LabelStyle}" Text="Inactive Border Color"/>
                     <TextBox x:Name="BorderInactive" Grid.Column="1" Style="{StaticResource InputStyle}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="Inactive Opacity (0.1-1.0)"/>
+                    <TextBox x:Name="InactiveOpacity" Grid.Column="1" Style="{StaticResource InputStyle}" Width="80" HorizontalAlignment="Left" ToolTip="1.0 = opaque, 0.85 = dim"/>
                 </Grid>
                 <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>

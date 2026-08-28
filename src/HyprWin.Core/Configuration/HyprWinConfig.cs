@@ -78,6 +78,9 @@ public sealed class KeybindsConfig
     public string MinimizeAll { get; init; } = "SUPER+D";
     public string MinimizeWindow { get; init; } = "SUPER+M";
     public string RestoreMinimized { get; init; } = "SUPER+SHIFT+M";
+    public string ToggleSpecialWorkspace { get; init; } = "SUPER+S";
+    public string MoveToSpecialWorkspace { get; init; } = "SUPER+SHIFT+S";
+    public string ToggleLayout { get; init; } = "SUPER+SPACE";
 }
 
 public sealed class WindowsKeysToSuppressConfig
@@ -86,7 +89,8 @@ public sealed class WindowsKeysToSuppressConfig
     {
         "WIN+LEFT", "WIN+RIGHT", "WIN+UP", "WIN+DOWN",
         "WIN+D", "WIN+TAB",
-        "WIN+1", "WIN+2", "WIN+3"
+        "WIN+1", "WIN+2", "WIN+3",
+        "WIN+S", "WIN+SPACE"
     };
 }
 
@@ -99,7 +103,7 @@ public sealed class WindowsKeysToPassthroughConfig
 {
     public List<string> Keys { get; init; } = new()
     {
-        "WIN+R", "WIN+SPACE"
+        "WIN+R"
     };
 }
 
@@ -126,13 +130,19 @@ public sealed class LayoutConfig
     public int GapsOuter { get; init; } = 0;
     public int BorderSize { get; init; } = 2;
     public int Rounding { get; init; } = 8;
+    public double MasterRatio { get; init; } = 0.55;
 }
 
 public sealed class ThemeConfig
 {
     public string ThemePreset { get; init; } = "Catppuccin Mocha";
     public string BorderActive { get; init; } = "#cba6f7";
+    public List<string> BorderActiveGradient { get; init; } = new();
+    public double BorderAngle { get; init; } = 45.0;
+    public double BorderAngleSpeed { get; init; } = 0.0;
     public string BorderInactive { get; init; } = "#45475a";
+    public double InactiveOpacity { get; init; } = 1.0;
+    public bool RoundCorners { get; init; } = true;
     public string Background { get; init; } = "#1e1e2e";
     public string TopBarBg { get; init; } = "#181825";
     public string TopBarFg { get; init; } = "#cdd6f4";

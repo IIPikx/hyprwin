@@ -33,6 +33,10 @@ public sealed class BorderRenderer : IDisposable
     private int _lastRegionH;
 
     private string _activeColor = "#cba6f7";
+    private List<string> _gradientColors = new();
+    private double _gradientAngle = 45.0;
+    private double _gradientAngleSpeed = 0.0;
+    private System.Windows.Threading.DispatcherTimer? _gradientRotationTimer;
     private string _inactiveColor = "#45475a";
     private int _borderSize = 2;
     private int _rounding = 8;
@@ -42,7 +46,7 @@ public sealed class BorderRenderer : IDisposable
     /// </summary>
     public void Start()
     {
-        var brush = BrushFromHex(_activeColor);
+        var brush = CreateBorderBrush(_activeColor, _gradientColors, _gradientAngle);
 
         _borderWindow = new Window
         {
@@ -94,23 +98,60 @@ public sealed class BorderRenderer : IDisposable
         _fallbackTimer.Tick += OnFallbackTick;
         _fallbackTimer.Start();
 
-        Logger.Instance.Info("Border renderer started (WinEvent-driven, region-based)");
+        SetupGradientRotationTimer();
+
+        Logger.Instance.Info("Border renderer started (WinEvent-driven, region-based, gradient-ready)");
+    }
+
+    private void SetupGradientRotationTimer()
+    {
+        _gradientRotationTimer?.Stop();
+        _gradientRotationTimer = null;
+
+        if (_gradientAngleSpeed > 0 && _gradientColors.Count >= 2)
+        {
+            _gradientRotationTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(33) // ~30 fps rotation
+            };
+            _gradientRotationTimer.Tick += (_, _) =>
+            {
+                _gradientAngle = (_gradientAngle + (_gradientAngleSpeed * 0.033)) % 360.0;
+                if (_borderWindow != null && _trackedHwnd != IntPtr.Zero)
+                {
+                    _borderWindow.Background = CreateBorderBrush(_activeColor, _gradientColors, _gradientAngle);
+                }
+            };
+            _gradientRotationTimer.Start();
+        }
     }
 
     /// <summary>
     /// Update theme from config.
     /// </summary>
-    public void UpdateTheme(string activeColor, string inactiveColor, int borderSize, int rounding)
+    public void UpdateTheme(
+        string activeColor,
+        IReadOnlyList<string>? gradientColors,
+        double angle,
+        double angleSpeed,
+        string inactiveColor,
+        int borderSize,
+        int rounding)
     {
         _activeColor = activeColor;
+        _gradientColors = gradientColors != null ? new List<string>(gradientColors) : new List<string>();
+        _gradientAngle = angle;
+        _gradientAngleSpeed = angleSpeed;
         _inactiveColor = inactiveColor;
         _borderSize = borderSize;
         _rounding = rounding;
 
         if (_borderWindow != null)
         {
-            _borderWindow.Background = BrushFromHex(_activeColor);
+            _borderWindow.Background = CreateBorderBrush(_activeColor, _gradientColors, _gradientAngle);
         }
+
+        SetupGradientRotationTimer();
 
         // Force region recalculation on next position update
         _lastRegionW = 0;
@@ -256,6 +297,41 @@ public sealed class BorderRenderer : IDisposable
         NativeMethods.DeleteObject(inner);
     }
 
+    private static Brush CreateBorderBrush(string activeColor, IReadOnlyList<string>? gradient, double angleDeg)
+    {
+        if (gradient != null && gradient.Count >= 2)
+        {
+            try
+            {
+                double rad = angleDeg * Math.PI / 180.0;
+                var start = new System.Windows.Point(0.5 - 0.5 * Math.Cos(rad), 0.5 - 0.5 * Math.Sin(rad));
+                var end = new System.Windows.Point(0.5 + 0.5 * Math.Cos(rad), 0.5 + 0.5 * Math.Sin(rad));
+
+                var brush = new LinearGradientBrush
+                {
+                    StartPoint = start,
+                    EndPoint = end
+                };
+
+                for (int i = 0; i < gradient.Count; i++)
+                {
+                    var c = (Color)ColorConverter.ConvertFromString(gradient[i]);
+                    double offset = (double)i / (gradient.Count - 1);
+                    brush.GradientStops.Add(new GradientStop(c, offset));
+                }
+
+                brush.Freeze();
+                return brush;
+            }
+            catch
+            {
+                // Fall back to solid color
+            }
+        }
+
+        return BrushFromHex(activeColor);
+    }
+
     private static SolidColorBrush BrushFromHex(string hex)
     {
         try
@@ -279,6 +355,7 @@ public sealed class BorderRenderer : IDisposable
         _disposed = true;
 
         _fallbackTimer?.Stop();
+        _gradientRotationTimer?.Stop();
         if (_locationHook != IntPtr.Zero)
             NativeMethods.UnhookWinEvent(_locationHook);
         _borderWindow?.Close();

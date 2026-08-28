@@ -14,6 +14,15 @@ public class Workspace
 
     /// <summary>The BSP tree for this workspace's tiling layout.</summary>
     public BspNode? LayoutRoot { get; set; }
+
+    /// <summary>Layout mode: "dwindle" (BSP) or "master" (Master/Stack).</summary>
+    public string LayoutMode { get; set; } = "dwindle";
+
+    /// <summary>Master window size ratio for master/stack layout.</summary>
+    public double MasterRatio { get; set; } = 0.55;
+
+    /// <summary>True if this is a special overlay scratchpad workspace.</summary>
+    public bool IsSpecial { get; init; } = false;
 }
 
 /// <summary>
@@ -26,6 +35,8 @@ public sealed class WorkspaceManager
     private readonly WindowTracker _windowTracker;
     private readonly Dictionary<int, Workspace[]> _monitorWorkspaces = new(); // monitorIndex -> Workspace[]
     private readonly Dictionary<int, int> _activeWorkspaceIndex = new(); // monitorIndex -> active ws index
+    private readonly Dictionary<int, Workspace> _specialWorkspaces = new(); // monitorIndex -> Special Workspace
+    private readonly Dictionary<int, bool> _specialWorkspaceVisible = new(); // monitorIndex -> is special ws visible
     private int _workspaceCount;
 
     /// <summary>Fired when the active workspace changes on any monitor.</summary>
@@ -224,6 +235,22 @@ public sealed class WorkspaceManager
                 }
             }
         }
+
+        foreach (var (monIdx, specialWs) in _specialWorkspaces)
+        {
+            var w = specialWs.Windows.FirstOrDefault(w => w.Handle == hwnd);
+            if (w != null)
+            {
+                specialWs.Windows.Remove(w);
+                if (specialWs.FocusedWindow?.Handle == hwnd)
+                    specialWs.FocusedWindow = specialWs.Windows.LastOrDefault();
+
+                if (IsSpecialWorkspaceVisible(monIdx))
+                    RetileRequested?.Invoke(specialWs);
+
+                return;
+            }
+        }
     }
 
     /// <summary>
@@ -240,6 +267,13 @@ public sealed class WorkspaceManager
                     return ws;
             }
         }
+
+        foreach (var specialWs in _specialWorkspaces.Values)
+        {
+            if (specialWs.Windows.Any(w => w.Handle == hwnd))
+                return specialWs;
+        }
+
         return null;
     }
 
@@ -379,6 +413,16 @@ public sealed class WorkspaceManager
                 return;
             }
         }
+
+        foreach (var specialWs in _specialWorkspaces.Values)
+        {
+            var w = specialWs.Windows.FirstOrDefault(w => w.Handle == hwnd);
+            if (w != null)
+            {
+                specialWs.FocusedWindow = w;
+                return;
+            }
+        }
     }
 
     /// <summary>
@@ -389,5 +433,119 @@ public sealed class WorkspaceManager
         var fgHwnd = NativeMethods.GetForegroundWindow();
         var mon = _monitorManager.GetMonitorForWindow(fgHwnd);
         return mon?.Index ?? 0;
+    }
+
+    public Workspace GetSpecialWorkspace(int monitorIndex)
+    {
+        if (!_specialWorkspaces.TryGetValue(monitorIndex, out var ws))
+        {
+            ws = new Workspace
+            {
+                Id = -1,
+                MonitorIndex = monitorIndex,
+                IsSpecial = true,
+            };
+            _specialWorkspaces[monitorIndex] = ws;
+            _specialWorkspaceVisible[monitorIndex] = false;
+        }
+        return ws;
+    }
+
+    public bool IsSpecialWorkspaceVisible(int monitorIndex)
+    {
+        return _specialWorkspaceVisible.TryGetValue(monitorIndex, out var v) && v;
+    }
+
+    public void ToggleSpecialWorkspace(int monitorIndex)
+    {
+        var specialWs = GetSpecialWorkspace(monitorIndex);
+        bool isVisible = IsSpecialWorkspaceVisible(monitorIndex);
+
+        if (isVisible)
+        {
+            // Hide special workspace windows off-screen
+            foreach (var w in specialWs.Windows)
+            {
+                if (!w.IsMinimized && NativeMethods.IsWindow(w.Handle))
+                {
+                    NativeMethods.GetWindowRect(w.Handle, out var rect);
+                    w.Bounds = rect;
+                    NativeMethods.SetWindowPos(w.Handle, IntPtr.Zero,
+                        -32000, -32000, rect.Width, rect.Height,
+                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOSENDCHANGING);
+                }
+            }
+            _specialWorkspaceVisible[monitorIndex] = false;
+
+            // Re-focus current workspace window
+            var currentWs = GetActiveWorkspace(monitorIndex);
+            if (currentWs?.FocusedWindow != null && NativeMethods.IsWindow(currentWs.FocusedWindow.Handle))
+            {
+                NativeMethods.ForceForegroundWindow(currentWs.FocusedWindow.Handle);
+            }
+            Logger.Instance.Info($"Special workspace on monitor {monitorIndex} hidden");
+        }
+        else
+        {
+            // Show special workspace windows
+            _specialWorkspaceVisible[monitorIndex] = true;
+            foreach (var w in specialWs.Windows)
+            {
+                if (!w.IsMinimized && NativeMethods.IsWindow(w.Handle) && !NativeMethods.IsWindowVisible(w.Handle))
+                {
+                    NativeMethods.ShowWindow(w.Handle, NativeMethods.SW_SHOWNOACTIVATE);
+                }
+            }
+
+            RetileRequested?.Invoke(specialWs);
+
+            if (specialWs.FocusedWindow != null && NativeMethods.IsWindow(specialWs.FocusedWindow.Handle))
+            {
+                NativeMethods.ForceForegroundWindow(specialWs.FocusedWindow.Handle);
+            }
+            else if (specialWs.Windows.Count > 0)
+            {
+                NativeMethods.ForceForegroundWindow(specialWs.Windows[0].Handle);
+            }
+            Logger.Instance.Info($"Special workspace on monitor {monitorIndex} shown");
+        }
+    }
+
+    public void MoveWindowToSpecialWorkspace(IntPtr hwnd)
+    {
+        var window = _windowTracker.GetWindow(hwnd);
+        if (window == null) return;
+
+        var currentWs = FindWorkspaceForWindow(hwnd);
+        if (currentWs == null) return;
+
+        int monIdx = window.MonitorIndex;
+        var specialWs = GetSpecialWorkspace(monIdx);
+        if (currentWs == specialWs) return;
+
+        currentWs.Windows.Remove(window);
+        if (currentWs.FocusedWindow == window)
+            currentWs.FocusedWindow = currentWs.Windows.FirstOrDefault();
+
+        specialWs.Windows.Add(window);
+        window.WorkspaceId = -1;
+        specialWs.FocusedWindow = window;
+
+        RetileRequested?.Invoke(currentWs);
+
+        if (IsSpecialWorkspaceVisible(monIdx))
+        {
+            RetileRequested?.Invoke(specialWs);
+        }
+        else
+        {
+            NativeMethods.GetWindowRect(window.Handle, out var rect);
+            window.Bounds = rect;
+            NativeMethods.SetWindowPos(window.Handle, IntPtr.Zero,
+                -32000, -32000, rect.Width, rect.Height,
+                NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOSENDCHANGING);
+        }
+
+        Logger.Instance.Info($"Moved window {window.Handle} ({window.ProcessName}) to special workspace on monitor {monIdx}");
     }
 }

@@ -68,6 +68,7 @@ public partial class SettingsWindow : Window
         GapsOuter.Text = _config.Layout.GapsOuter.ToString();
         BorderSize.Text = _config.Layout.BorderSize.ToString();
         Rounding.Text = _config.Layout.Rounding.ToString();
+        MasterRatio.Text = _config.Layout.MasterRatio.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
         // Theme presets
         _suppressPresetChange = true;
@@ -100,6 +101,7 @@ public partial class SettingsWindow : Window
         // Theme
         BorderActive.Text = _config.Theme.BorderActive;
         BorderInactive.Text = _config.Theme.BorderInactive;
+        InactiveOpacity.Text = _config.Theme.InactiveOpacity.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         TopBarBg.Text = _config.Theme.TopBarBg;
         TopBarFg.Text = _config.Theme.TopBarFg;
         TopBarAccent.Text = _config.Theme.TopBarAccent;
@@ -193,12 +195,14 @@ public partial class SettingsWindow : Window
             toml = SetTomlValue(toml, "gaps_outer", GapsOuter.Text.Trim());
             toml = SetTomlValue(toml, "border_size", BorderSize.Text.Trim());
             toml = SetTomlValue(toml, "rounding", Rounding.Text.Trim());
+            toml = SetTomlValue(toml, "master_ratio", MasterRatio.Text.Trim());
 
             // Theme
             var selectedPreset = (ThemePresetCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Custom";
             toml = SetTomlStringValue(toml, "theme_preset", selectedPreset);
             toml = SetTomlStringValue(toml, "border_active", BorderActive.Text.Trim());
             toml = SetTomlStringValue(toml, "border_inactive", BorderInactive.Text.Trim());
+            toml = SetTomlValue(toml, "inactive_opacity", InactiveOpacity.Text.Trim());
             toml = SetTomlStringValue(toml, "top_bar_bg", TopBarBg.Text.Trim());
             toml = SetTomlStringValue(toml, "top_bar_fg", TopBarFg.Text.Trim());
             toml = SetTomlStringValue(toml, "top_bar_accent", TopBarAccent.Text.Trim());

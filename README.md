@@ -4,6 +4,37 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 
 ## Features
 
+### Mouse Tiling (Hyprland Parity)
+- **SUPER + Left Click + Drag** — Drag a window and drop it onto another window to instantly swap places in the tiling layout.
+- **SUPER + Right Click + Drag** — Click and drag within any tiled window to dynamically resize its BSP split in real-time.
+
+### Special Workspace (Scratchpad)
+- **SUPER + S** — Toggle the special overlay workspace on the current monitor.
+- **SUPER + SHIFT + S** — Move the currently focused window into/out of the scratchpad.
+
+### Master/Stack Layout Mode
+- **SUPER + SPACE** — Toggle between **Dwindle (BSP)** layout and **Master/Stack** layout.
+- Configurable `master_ratio` (default 0.55) and dynamic stack splitting.
+
+### Visual Polish & Themes
+- **Multi-color Animated Gradient Borders** — specify 2+ hex colors (`border_active_gradient`) with static angle or continuous real-time rotation (`border_angle_speed`).
+- **Inactive Window Dimming** — automatically dim unfocused windows (`inactive_opacity = 0.85`) for focus clarity.
+- **16+ Built-in Theme Presets** — Catppuccin Mocha/Macchiato/Latte, Tokyo Night, Gruvbox, Nord, Dracula, Rosé Pine, Kanagawa, etc.
+
+### IPC Server & CLI (`hyprwinctl`)
+- **Named Pipe Server** at `\\.\pipe\hyprwin-ipc` for scripts, Stream Deck, and external widgets.
+- **CLI Commands**:
+  - `hyprwinctl dispatch workspace <N>`
+  - `hyprwinctl dispatch movetoworkspace <N>`
+  - `hyprwinctl dispatch togglespecialworkspace`
+  - `hyprwinctl dispatch togglelayout`
+  - `hyprwinctl dispatch fullscreen`
+  - `hyprwinctl dispatch togglefloat`
+  - `hyprwinctl dispatch closewindow`
+  - `hyprwinctl get activewindow` (JSON)
+  - `hyprwinctl reload`
+  - `hyprwinctl version`
+
 ### Window Tiling
 - **BSP (Binary Space Partitioning) Layout** — intelligent dwindle-style tiling that preserves split ratios
 - **Multi-Monitor Support** — each monitor has independent workspaces with seamless cross-monitor window moves
@@ -54,32 +85,21 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 
 ### Settings Window
 - **General** — terminal command, workspace mode, workspace count, autostart
-- **Layout** — inner/outer gaps, border size, corner rounding
-- **Theme** — all colors configurable (active/inactive border, top bar bg/fg/accent)
+- **Layout** — inner/outer gaps, border size, corner rounding, master ratio
+- **Theme** — theme preset selection, icon themes, active/inactive border colors, inactive opacity, top bar bg/fg/accent
 - **Top Bar** — enable/disable, height, position, font, font size, module selection
-- **Animations** — enable/disable, move duration
+- **Animations** — enable/disable, move duration, presets, bezier curves
 - **Gaming Mode** — auto-detect toggle, suspend animations, suspend border
 - **Exclusions** — comma-separated process names to exclude from tiling
 - **Live Reload** — changes are applied immediately via TOML file watcher
 
-### Animations
-- **Slide, Popin, Fade** — Hyprland-compatible window open animation styles
-- **Custom Bezier Curves** — define named bezier curves for easing
-- **Built-in Easings** — linear, ease_in, ease_out, ease_out_cubic, ease_out_quint, ease_out_expo, spring
+### Keyboard & Mouse Shortcuts
 
-### Border Renderer
-- **GPU-Accelerated** — uses Win32 region-based rendering (no AllowsTransparency software fallback)
-- **Zero-Lag Tracking** — WinEvent-driven position updates for instant border following
-- **Customizable** — configurable color, size, and corner rounding
-
-### Additional Features
-- **TOML Configuration** — human-readable config with hot-reload at `%APPDATA%\HyprWin\hyprwin.toml`
-- **Window Rules** — match by process, class, or title regex with effects (float, opacity, workspace, size, etc.)
-- **Custom Launch Shortcuts** — bind any key combo to launch any program
-- **Autostart** — optional Windows autostart via registry
-- **Tray Icon** — quick access to reload config, open config folder, toggle autostart
-
-## Keyboard Shortcuts
+### Mouse Actions
+| Shortcut | Action |
+|----------|--------|
+| `SUPER + LMB Drag` | Drag window and drop over another to swap positions |
+| `SUPER + RMB Drag` | Live interactive BSP resize of the window boundary |
 
 ### Window Focus
 | Shortcut | Action |
@@ -106,15 +126,18 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 | `SUPER + SHIFT + M` | Restore minimized windows on the active workspace |
 | `SUPER + D` | Toggle minimize/restore all windows on the active workspace |
 
-### Workspaces
+### Workspaces & Scratchpad
 | Shortcut | Action |
 |----------|--------|
 | `SUPER + 1/2/3` | Switch to workspace 1/2/3 |
 | `SUPER + SHIFT + 1/2/3` | Move window to workspace 1/2/3 |
+| `SUPER + S` | Toggle special scratchpad workspace overlay |
+| `SUPER + SHIFT + S` | Move window to special scratchpad workspace |
 
 ### Layout
 | Shortcut | Action |
 |----------|--------|
+| `SUPER + SPACE` | Toggle layout between Dwindle (BSP) and Master/Stack |
 | `SUPER + X` | Set split to horizontal (side-by-side) |
 | `SUPER + Y` | Set split to vertical (stacked) |
 | `SUPER + SHIFT + X` | Mirror workspace horizontally |
@@ -127,7 +150,6 @@ A powerful, customizable tiling window manager for Windows 10/11 that brings the
 | `SUPER + E` | Launch File Explorer |
 | `SUPER + I` | Launch Windows Settings |
 | `SUPER + B` | Launch default browser |
-| `SUPER + SHIFT + S` | Screenshot (Snipping Tool) |
 | `SUPER + SHIFT + C` | PowerToys Color Picker |
 | `CTRL + SHIFT + ESC` | Task Manager |
 

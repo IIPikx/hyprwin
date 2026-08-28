@@ -57,6 +57,9 @@ launch_color_picker = "SUPER+SHIFT+C"  # PowerToys Color Picker
 minimize_all = "SUPER+D"               # Minimize all windows on current workspace
 minimize_window = "SUPER+M"            # Minimize active window
 restore_minimized = "SUPER+SHIFT+M"    # Restore minimized windows on current workspace
+toggle_special_workspace = "SUPER+S"   # Toggle special scratchpad workspace overlay
+move_to_special_workspace = "SUPER+SHIFT+S" # Move focused window to scratchpad
+toggle_layout = "SUPER+SPACE"          # Toggle between Dwindle (BSP) and Master/Stack layout
 swap_horizontal = "SUPER+SHIFT+X"      # Mirror windows left↔right in workspace
 swap_vertical   = "SUPER+SHIFT+Y"      # Mirror windows top↔bottom in workspace
 rotate_split_vertical   = "SUPER+Y"    # Set active window's split to side-by-side
@@ -70,6 +73,7 @@ keys = [
     "WIN+LEFT", "WIN+RIGHT", "WIN+UP", "WIN+DOWN",
     "WIN+D", "WIN+TAB",
     "WIN+1", "WIN+2", "WIN+3",
+    "WIN+S", "WIN+SPACE",
     "WIN+I"
 ]
 
@@ -79,8 +83,7 @@ keys = [
 # so programs like Raycast, Run dialog, etc. still work.
 [windows_keys_to_passthrough]
 keys = [
-    "WIN+R",       # Windows Run dialog
-    "WIN+SPACE"    # Raycast / Input language switch
+    "WIN+R"        # Windows Run dialog
 ]
 
 # ─────────────────────── Animations ───────────────────────
@@ -117,10 +120,11 @@ popin_percent     = 80            # Start scale for popin style (0-100)
 
 # ─────────────────────── Layout ───────────────────────
 [layout]
-gaps_inner  = 4    # Pixels between adjacent windows
-gaps_outer  = 0    # Pixels from screen edges
-border_size = 2    # Active/inactive border thickness
-rounding    = 8    # Corner radius in pixels
+gaps_inner   = 4    # Pixels between adjacent windows
+gaps_outer   = 0    # Pixels from screen edges
+border_size  = 2    # Active/inactive border thickness
+rounding     = 8    # Corner radius in pixels
+master_ratio = 0.55 # Master window ratio in Master/Stack mode (0.2 - 0.8)
 
 # ─────────────────────── Theme ───────────────────────
 # Colors in hex format. Catppuccin Mocha palette by default.
@@ -131,14 +135,19 @@ rounding    = 8    # Corner radius in pixels
 #   Kanagawa, Ayu Dark, Custom
 # Set to "Custom" to use the individual color values below.
 [theme]
-theme_preset    = "Catppuccin Mocha"
-border_active   = "#f77a26"    # Mauve — focused window border
-border_inactive = "#45475a"    # Surface1 — unfocused window border
-background      = "#1e1e2e"    # Base — general background
-top_bar_bg      = "#181825"    # Mantle — top bar background
-top_bar_fg      = "#cdd6f4"    # Text — top bar foreground text
-top_bar_accent  = "#89b4fa"    # Blue — accent highlights
-icon_theme      = "Emoji"      # Icon style: Emoji, Nerd Font, Minimal, Arrows
+theme_preset           = "Catppuccin Mocha"
+border_active          = "#f77a26"    # Active border color (used when gradient is empty)
+border_active_gradient = ["#89b4fa", "#cba6f7"] # 2+ color gradient border
+border_angle           = 45.0         # Gradient angle in degrees
+border_angle_speed     = 0.0          # Continuous rotation speed in deg/sec (0 = static)
+border_inactive        = "#45475a"    # Surface1 — unfocused window border
+inactive_opacity       = 1.0          # Unfocused window opacity (0.1 - 1.0, 1.0 = opaque)
+round_corners          = true         # Enforce Windows 11 rounded corners on all windows
+background             = "#1e1e2e"    # Base — general background
+top_bar_bg             = "#181825"    # Mantle — top bar background
+top_bar_fg             = "#cdd6f4"    # Text — top bar foreground text
+top_bar_accent         = "#89b4fa"    # Blue — accent highlights
+icon_theme             = "Emoji"      # Icon style: Emoji, Nerd Font, Minimal, Arrows
 
 # ─────────────────────── Top Bar ───────────────────────
 [top_bar]

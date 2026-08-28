@@ -288,7 +288,14 @@ public sealed class TilingEngine
             workArea.Bottom - _gapsOuter);
 
         // Calculate layout
-        CalculateLayout(workspace.LayoutRoot, tilingArea);
+        if (workspace.LayoutMode == "master")
+        {
+            CalculateMasterLayout(workspace, tilingArea);
+        }
+        else
+        {
+            CalculateLayout(workspace.LayoutRoot, tilingArea);
+        }
 
         // Build lookup once for O(1) hit per leaf
         windowLookup ??= BuildWindowLookup(workspace);
@@ -354,6 +361,58 @@ public sealed class TilingEngine
                     ApplyWindowPosition(hwnd, adj);
             }
         }
+    }
+
+    /// <summary>
+    /// Calculate layout in Master/Stack mode:
+    /// One master window on the left, remaining stack windows stacked vertically on the right.
+    /// </summary>
+    private void CalculateMasterLayout(Workspace workspace, NativeMethods.RECT area)
+    {
+        if (workspace.LayoutRoot == null) return;
+        var leaves = workspace.LayoutRoot.GetLeaves().ToList();
+        if (leaves.Count == 0) return;
+
+        if (leaves.Count == 1)
+        {
+            leaves[0].ComputedRect = area;
+            return;
+        }
+
+        double ratio = Math.Clamp(workspace.MasterRatio, 0.2, 0.8);
+
+        int masterWidth = (int)((area.Width - _gapsInner) * ratio);
+        int stackWidth = area.Width - masterWidth - _gapsInner;
+
+        // Master window on the left
+        var masterRect = new NativeMethods.RECT(area.Left, area.Top, area.Left + masterWidth, area.Bottom);
+        leaves[0].ComputedRect = masterRect;
+
+        // Stack windows on the right
+        int stackCount = leaves.Count - 1;
+        int totalStackGaps = (stackCount - 1) * _gapsInner;
+        int availableStackHeight = Math.Max(0, area.Height - totalStackGaps);
+        int slotHeight = availableStackHeight / stackCount;
+
+        int currentY = area.Top;
+        int stackX = area.Left + masterWidth + _gapsInner;
+
+        for (int i = 1; i < leaves.Count; i++)
+        {
+            int h = (i == leaves.Count - 1) ? (area.Bottom - currentY) : slotHeight;
+            leaves[i].ComputedRect = new NativeMethods.RECT(stackX, currentY, stackX + stackWidth, currentY + h);
+            currentY += h + _gapsInner;
+        }
+    }
+
+    /// <summary>
+    /// Toggle between "dwindle" (BSP) and "master" (Master/Stack) layout modes.
+    /// </summary>
+    public void ToggleLayout(Workspace workspace)
+    {
+        workspace.LayoutMode = workspace.LayoutMode == "master" ? "dwindle" : "master";
+        Logger.Instance.Info($"Workspace {workspace.Id} layout toggled to {workspace.LayoutMode}");
+        TileWorkspace(workspace, animate: true);
     }
 
     /// <summary>

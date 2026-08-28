@@ -25,6 +25,8 @@ public partial class App : Application
     private BorderRenderer _borderRenderer = null!;
     private TaskbarManager _taskbarManager = null!;
     private WindowRuleEngine _windowRuleEngine = null!;
+    private MouseHook _mouseHook = null!;
+    private IpcServer _ipcServer = null!;
 
     // ──────────────── UI ────────────────
     private TaskbarIcon? _trayIcon;
@@ -103,14 +105,27 @@ public partial class App : Application
                 return;
             }
 
+            // 1c. CLI Client Mode (hyprctl compatible)
+            // If arguments like "dispatch ...", "get ...", "version", or "reload" are provided,
+            // send command to running HyprWin instance via Named Pipe and exit immediately.
+            var cmdArgs = Environment.GetCommandLineArgs();
+            if (cmdArgs.Length > 1 && (cmdArgs[1].Equals("dispatch", StringComparison.OrdinalIgnoreCase) ||
+                                       cmdArgs[1].Equals("get", StringComparison.OrdinalIgnoreCase) ||
+                                       cmdArgs[1].Equals("reload", StringComparison.OrdinalIgnoreCase) ||
+                                       cmdArgs[1].Equals("version", StringComparison.OrdinalIgnoreCase)))
+            {
+                RunCliClient(cmdArgs.Skip(1));
+                Shutdown(0);
+                return;
+            }
+
             // 2. Load configuration (supports --config <path> argument)
             string? configPath = null;
-            var args = Environment.GetCommandLineArgs();
-            for (int i = 1; i < args.Length - 1; i++)
+            for (int i = 1; i < cmdArgs.Length - 1; i++)
             {
-                if (args[i].Equals("--config", StringComparison.OrdinalIgnoreCase))
+                if (cmdArgs[i].Equals("--config", StringComparison.OrdinalIgnoreCase))
                 {
-                    configPath = args[i + 1];
+                    configPath = cmdArgs[i + 1];
                     Logger.Instance.Info($"Config path from command line: {configPath}");
                     break;
                 }
@@ -239,14 +254,25 @@ public partial class App : Application
                 }
             }
 
-            // 15. Start border renderer
+            // 15. Start border renderer with gradient support
             _borderRenderer = new BorderRenderer();
             _borderRenderer.UpdateTheme(
                 config.Theme.BorderActive,
+                config.Theme.BorderActiveGradient,
+                config.Theme.BorderAngle,
+                config.Theme.BorderAngleSpeed,
                 config.Theme.BorderInactive,
                 config.Layout.BorderSize,
                 config.Layout.Rounding);
             _borderRenderer.Start();
+
+            // 15b. Start low-level mouse hook (SUPER+LMB drag, SUPER+RMB resize)
+            _mouseHook = new MouseHook(_windowTracker, _workspaceManager, _tilingEngine, _monitorManager);
+            _mouseHook.Install();
+
+            // 15c. Start Named Pipe IPC Server (hyprctl compatible)
+            _ipcServer = new IpcServer(HandleIpcCommandAsync);
+            _ipcServer.Start();
 
             // 16. Create top bar windows
             if (config.TopBar.Enabled)
@@ -315,7 +341,8 @@ public partial class App : Application
 
         try
         {
-            // 0. Stop display change hook
+            // 0. Stop IPC and display change hook
+            _ipcServer?.Dispose();
             _messageHookSource?.Dispose();
 
             // 1. Close top bar windows FIRST — they must stop receiving events
@@ -325,7 +352,8 @@ public partial class App : Application
                 try { bar.Close(); } catch { }
             }
 
-            // 2. Stop keyboard hook (release all hotkeys)
+            // 2. Stop hooks (release all hotkeys and mouse captures)
+            _mouseHook?.Dispose();
             _keyboardHook?.Dispose();
 
             // 3. Stop border renderer
@@ -425,6 +453,11 @@ public partial class App : Application
         _keyboardHook.RegisterKeybind(kb.MoveToWs2, () => _dispatcher.MoveToWorkspace(1));
         _keyboardHook.RegisterKeybind(kb.MoveToWs3, () => _dispatcher.MoveToWorkspace(2));
 
+        // Special Workspace & Layout Mode
+        _keyboardHook.RegisterKeybind(kb.ToggleSpecialWorkspace, _dispatcher.ToggleSpecialWorkspace);
+        _keyboardHook.RegisterKeybind(kb.MoveToSpecialWorkspace, _dispatcher.MoveToSpecialWorkspace);
+        _keyboardHook.RegisterKeybind(kb.ToggleLayout, _dispatcher.ToggleLayout);
+
         // Custom launch shortcuts from [[launch]] entries
         foreach (var entry in config.Launch)
         {
@@ -511,6 +544,9 @@ public partial class App : Application
             _borderRenderer?.TrackWindow(hwnd);
         }
 
+        // Apply inactive window opacity
+        UpdateInactiveOpacity(hwnd, _configManager.Current.Theme.InactiveOpacity);
+
         // Update workspace indicators on all top bars
         foreach (var bar in _topBarWindows)
         {
@@ -540,6 +576,9 @@ public partial class App : Application
                 // Update border renderer
                 _borderRenderer?.UpdateTheme(
                     config.Theme.BorderActive,
+                    config.Theme.BorderActiveGradient,
+                    config.Theme.BorderAngle,
+                    config.Theme.BorderAngleSpeed,
                     config.Theme.BorderInactive,
                     config.Layout.BorderSize,
                     config.Layout.Rounding);
@@ -1053,6 +1092,200 @@ public partial class App : Application
         {
             Logger.Instance.Warn($"Error applying window rule to {window.ProcessName}: {ex.Message}");
         }
+    }
+
+    private void UpdateInactiveOpacity(IntPtr activeHwnd, double inactiveOpacity)
+    {
+        if (inactiveOpacity >= 1.0) return;
+
+        try
+        {
+            var monIdx = _workspaceManager.GetFocusedMonitorIndex();
+            var activeWs = _workspaceManager.GetActiveWorkspace(monIdx);
+            if (activeWs == null) return;
+
+            byte inactiveAlpha = (byte)Math.Clamp((int)(inactiveOpacity * 255), 30, 255);
+
+            foreach (var w in activeWs.Windows)
+            {
+                if (w.Handle == activeHwnd)
+                {
+                    // Restore full opacity on active window
+                    HyprWin.Core.Interop.NativeMethods.SetLayeredWindowAttributes(
+                        w.Handle, 0, 255, HyprWin.Core.Interop.NativeMethods.LWA_ALPHA);
+                }
+                else if (!w.IsFullscreen)
+                {
+                    // Apply inactive dimming
+                    int exStyle = HyprWin.Core.Interop.NativeMethods.GetWindowLong(
+                        w.Handle, HyprWin.Core.Interop.NativeMethods.GWL_EXSTYLE);
+                    if ((exStyle & (int)HyprWin.Core.Interop.NativeMethods.WS_EX_LAYERED) == 0)
+                    {
+                        HyprWin.Core.Interop.NativeMethods.SetWindowLong(
+                            w.Handle, HyprWin.Core.Interop.NativeMethods.GWL_EXSTYLE,
+                            exStyle | (int)HyprWin.Core.Interop.NativeMethods.WS_EX_LAYERED);
+                    }
+                    HyprWin.Core.Interop.NativeMethods.SetLayeredWindowAttributes(
+                        w.Handle, 0, inactiveAlpha, HyprWin.Core.Interop.NativeMethods.LWA_ALPHA);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Debug($"Inactive opacity error: {ex.Message}");
+        }
+    }
+
+    private static void RunCliClient(IEnumerable<string> args)
+    {
+        try
+        {
+            using var client = new System.IO.Pipes.NamedPipeClientStream(".", IpcServer.PipeName, System.IO.Pipes.PipeDirection.InOut);
+            client.Connect(1500);
+
+            using var writer = new System.IO.StreamWriter(client, System.Text.Encoding.UTF8) { AutoFlush = true };
+            using var reader = new System.IO.StreamReader(client, System.Text.Encoding.UTF8);
+
+            string cmd = string.Join(" ", args);
+            writer.WriteLine(cmd);
+            string? response = reader.ReadLine();
+            Console.WriteLine(response ?? "OK");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error communicating with HyprWin: {ex.Message}");
+        }
+    }
+
+    private Task<string> HandleIpcCommandAsync(string command)
+    {
+        var tcs = new TaskCompletionSource<string>();
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0)
+                {
+                    tcs.SetResult("ok");
+                    return;
+                }
+
+                string verb = parts[0].ToLowerInvariant();
+                switch (verb)
+                {
+                    case "dispatch":
+                        if (parts.Length > 1)
+                        {
+                            string action = parts[1].ToLowerInvariant();
+                            string arg = parts.Length > 2 ? parts[2] : "";
+
+                            switch (action)
+                            {
+                                case "workspace":
+                                    if (int.TryParse(arg, out int ws)) _dispatcher.SwitchToWorkspace(ws - 1);
+                                    break;
+                                case "movetoworkspace":
+                                    if (int.TryParse(arg, out int mws)) _dispatcher.MoveToWorkspace(mws - 1);
+                                    break;
+                                case "togglespecialworkspace":
+                                    _dispatcher.ToggleSpecialWorkspace();
+                                    break;
+                                case "movetospecialworkspace":
+                                    _dispatcher.MoveToSpecialWorkspace();
+                                    break;
+                                case "togglelayout":
+                                    _dispatcher.ToggleLayout();
+                                    break;
+                                case "togglefloat":
+                                    _dispatcher.ToggleFloat();
+                                    break;
+                                case "fullscreen":
+                                    _dispatcher.ToggleFullscreen();
+                                    break;
+                                case "closewindow":
+                                    _dispatcher.CloseWindow();
+                                    break;
+                                case "focus":
+                                    switch (arg.ToLowerInvariant())
+                                    {
+                                        case "left": _dispatcher.FocusLeft(); break;
+                                        case "right": _dispatcher.FocusRight(); break;
+                                        case "up": _dispatcher.FocusUp(); break;
+                                        case "down": _dispatcher.FocusDown(); break;
+                                    }
+                                    break;
+                                case "move":
+                                    switch (arg.ToLowerInvariant())
+                                    {
+                                        case "left": _dispatcher.MoveLeft(); break;
+                                        case "right": _dispatcher.MoveRight(); break;
+                                        case "up": _dispatcher.MoveUp(); break;
+                                        case "down": _dispatcher.MoveDown(); break;
+                                    }
+                                    break;
+                                case "swaphorizontal":
+                                    _dispatcher.SwapHorizontal();
+                                    break;
+                                case "swapvertical":
+                                    _dispatcher.SwapVertical();
+                                    break;
+                                case "terminal":
+                                    _dispatcher.LaunchTerminal();
+                                    break;
+                                case "explorer":
+                                    _dispatcher.LaunchExplorer();
+                                    break;
+                                case "reload":
+                                    var cfg = _configManager.Load();
+                                    OnConfigChanged(cfg);
+                                    break;
+                            }
+                        }
+                        tcs.SetResult("ok");
+                        break;
+
+                    case "get":
+                        if (parts.Length > 1 && parts[1].Equals("activewindow", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var active = _windowTracker.ActiveWindow;
+                            if (active != null)
+                            {
+                                tcs.SetResult($"{{\"handle\":\"0x{active.Handle.ToInt64():X}\",\"title\":\"{active.Title}\",\"process\":\"{active.ProcessName}\",\"class\":\"{active.ClassName}\",\"floating\":{active.IsFloating.ToString().ToLowerInvariant()},\"fullscreen\":{active.IsFullscreen.ToString().ToLowerInvariant()}}}");
+                            }
+                            else
+                            {
+                                tcs.SetResult("{}");
+                            }
+                        }
+                        else
+                        {
+                            tcs.SetResult("ok");
+                        }
+                        break;
+
+                    case "reload":
+                        var reloaded = _configManager.Load();
+                        OnConfigChanged(reloaded);
+                        tcs.SetResult("ok");
+                        break;
+
+                    case "version":
+                        tcs.SetResult("HyprWin 1.1.0 (Hyprland for Windows)");
+                        break;
+
+                    default:
+                        tcs.SetResult("ok");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                tcs.SetResult($"error: {ex.Message}");
+            }
+        });
+
+        return tcs.Task;
     }
 
     private static System.Text.RegularExpressions.Regex? ToRegex(string? pattern)

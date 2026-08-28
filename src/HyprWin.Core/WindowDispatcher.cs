@@ -671,12 +671,43 @@ public sealed class WindowDispatcher
         }
         else
         {
+            // Virtual mode: move window to virtual workspace
             _workspaceManager.MoveWindowToWorkspace(hwnd, workspaceIndex);
-            // Automatically follow the window to its new workspace
-            _workspaceManager.SwitchWorkspace(sourceMonIdx, workspaceIndex);
         }
 
         NativeMethods.ForceForegroundWindow(hwnd);
+    }
+
+    /// <summary>
+    /// Toggle the special overlay scratchpad workspace on the currently focused monitor.
+    /// </summary>
+    public void ToggleSpecialWorkspace()
+    {
+        int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+        _workspaceManager.ToggleSpecialWorkspace(monIdx);
+    }
+
+    /// <summary>
+    /// Move the active window to the special overlay scratchpad workspace.
+    /// </summary>
+    public void MoveToSpecialWorkspace()
+    {
+        var hwnd = NativeMethods.GetForegroundWindow();
+        if (hwnd == IntPtr.Zero) return;
+        _workspaceManager.MoveWindowToSpecialWorkspace(hwnd);
+    }
+
+    /// <summary>
+    /// Toggle between "dwindle" (BSP) and "master" (Master/Stack) layout on the active workspace.
+    /// </summary>
+    public void ToggleLayout()
+    {
+        int monIdx = _workspaceManager.GetFocusedMonitorIndex();
+        var ws = _workspaceManager.GetActiveWorkspace(monIdx);
+        if (ws != null)
+        {
+            _tilingEngine.ToggleLayout(ws);
+        }
     }
 
     /// <summary>

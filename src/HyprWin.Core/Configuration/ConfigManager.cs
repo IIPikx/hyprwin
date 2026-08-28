@@ -242,6 +242,9 @@ public sealed class ConfigManager : IDisposable
             MinimizeAll = GetString(t, "minimize_all", "SUPER+D"),
             MinimizeWindow = GetString(t, "minimize_window", "SUPER+M"),
             RestoreMinimized = GetString(t, "restore_minimized", "SUPER+SHIFT+M"),
+            ToggleSpecialWorkspace = GetString(t, "toggle_special_workspace", "SUPER+S"),
+            MoveToSpecialWorkspace = GetString(t, "move_to_special_workspace", "SUPER+SHIFT+S"),
+            ToggleLayout = GetString(t, "toggle_layout", "SUPER+SPACE"),
         };
     }
 
@@ -258,7 +261,8 @@ public sealed class ConfigManager : IDisposable
                 if (item is string s)
                     keys.Add(s);
             }
-            return new WindowsKeysToSuppressConfig { Keys = keys };
+            if (keys.Count > 0)
+                return new WindowsKeysToSuppressConfig { Keys = keys };
         }
 
         return new WindowsKeysToSuppressConfig();
@@ -277,7 +281,8 @@ public sealed class ConfigManager : IDisposable
                 if (item is string s)
                     keys.Add(s);
             }
-            return new WindowsKeysToPassthroughConfig { Keys = keys };
+            if (keys.Count > 0)
+                return new WindowsKeysToPassthroughConfig { Keys = keys };
         }
 
         return new WindowsKeysToPassthroughConfig();
@@ -308,10 +313,11 @@ public sealed class ConfigManager : IDisposable
 
         return new LayoutConfig
         {
-            GapsInner = GetInt(t, "gaps_inner", 8),
-            GapsOuter = GetInt(t, "gaps_outer", 7),
+            GapsInner = GetInt(t, "gaps_inner", 4),
+            GapsOuter = GetInt(t, "gaps_outer", 0),
             BorderSize = GetInt(t, "border_size", 2),
             Rounding = GetInt(t, "rounding", 8),
+            MasterRatio = GetDouble(t, "master_ratio", 0.55),
         };
     }
 
@@ -320,11 +326,26 @@ public sealed class ConfigManager : IDisposable
         if (!table.TryGetValue("theme", out var obj) || obj is not TomlTable t)
             return new ThemeConfig();
 
+        var gradient = new List<string>();
+        if (t.TryGetValue("border_active_gradient", out var gObj) && gObj is TomlArray gArr)
+        {
+            foreach (var item in gArr)
+            {
+                if (item is string s)
+                    gradient.Add(s);
+            }
+        }
+
         return new ThemeConfig
         {
             ThemePreset = GetString(t, "theme_preset", "Catppuccin Mocha"),
             BorderActive = GetString(t, "border_active", "#cba6f7"),
+            BorderActiveGradient = gradient,
+            BorderAngle = GetDouble(t, "border_angle", 45.0),
+            BorderAngleSpeed = GetDouble(t, "border_angle_speed", 0.0),
             BorderInactive = GetString(t, "border_inactive", "#45475a"),
+            InactiveOpacity = GetDouble(t, "inactive_opacity", 1.0),
+            RoundCorners = GetBool(t, "round_corners", true),
             Background = GetString(t, "background", "#1e1e2e"),
             TopBarBg = GetString(t, "top_bar_bg", "#181825"),
             TopBarFg = GetString(t, "top_bar_fg", "#cdd6f4"),

@@ -31,3 +31,9 @@ Fenster mit `WS_EX_TOPMOST` und DirectComposition-Rendering (z.B. manche XAML-Ho
 | PERF-4 | `MonitorManager.cs` | Zero-Allocation Monitor-Snapshots (`_cachedMonitors`) und `WM_DISPLAYCHANGE` Hook für automatische Display-Neuerkennung. |
 | PERF-5 | `AnimationEngine.cs` | Lock-freie Frame-Snapshots während `OnRendering`, `SWP_DEFERERASE` gegen Flackern und `IsPaused` für Gaming-Modus. |
 | PERF-6 | `TouchpadGestureService.cs` | Pufferwiederverwendung (`_reportBuffer`) bei Touchpad Raw Input zur Beseitigung von Garbage-Collection-Spikes. |
+| FEAT-1 | `MouseHook.cs` | Low-Level Mouse Hook (`WH_MOUSE_LL`) für `SUPER+LMB` (Fenster per Drag-and-Drop swappen) und `SUPER+RMB` (Live BSP-Split-Resize). |
+| FEAT-2 | `BorderRenderer.cs` | Mehrfarbige animierte Verlaufsrahmen (`border_active_gradient`, `border_angle`, `border_angle_speed`) mit Rotationstimer. |
+| FEAT-3 | `App.xaml.cs` | Inaktive Fenster abdunkeln (`inactive_opacity`) über `WS_EX_LAYERED` und `SetLayeredWindowAttributes`. |
+| FEAT-4 | `TilingEngine.cs` | Master/Stack-Layout-Modus (`toggle_layout` via `SUPER+SPACE`, `master_ratio`). |
+| FEAT-5 | `WorkspaceManager.cs` / `WindowDispatcher.cs` | Special Workspace / Scratchpad Overlay (`SUPER+S`, `SUPER+SHIFT+S`). |
+| FEAT-6 | `IpcServer.cs` / `hyprwinctl.cmd` | Named-Pipe IPC Server (`\\.\pipe\hyprwin-ipc`) für externe Automatisierung und hyprctl-kompatible CLI. |
